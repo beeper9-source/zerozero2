@@ -471,6 +471,9 @@ function renderGameTable(results) {
         tbody.appendChild(tr);
         return;
     }
+    let currentDate = null;
+    let isEvenDate = false;
+    
     results.forEach(row => {
         const wins = row.wins ?? 0;
         const losses = row.losses ?? 0;
@@ -478,6 +481,19 @@ function renderGameTable(results) {
         const winrate = total > 0 ? Math.round((wins / total) * 100) : 0;
         const tr = document.createElement('tr');
         tr.style.cursor = 'pointer';
+        
+        // 날짜가 변경되면 배경색 토글
+        if (currentDate !== row.game_date) {
+            currentDate = row.game_date;
+            isEvenDate = !isEvenDate;
+        }
+        
+        // 날짜별 배경색 설정
+        if (isEvenDate) {
+            tr.style.backgroundColor = '#f8fafc'; // 연한 회색
+        } else {
+            tr.style.backgroundColor = '#ffffff'; // 흰색
+        }
         tr.addEventListener('click', () => {
             const courtSelect = document.querySelector('#pgameCourt');
             const memberSelect = document.querySelector('#pgameMember');
