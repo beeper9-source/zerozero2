@@ -3,6 +3,32 @@
   box-sizing: border-box;
 }
 
+/* Accordion styles */
+.section-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+  max-height: 2000px;
+  opacity: 1;
+}
+
+.section-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.section-content.collapsed * {
+  pointer-events: none;
+}
+
+h2:hover {
+  background-color: rgba(102, 126, 234, 0.05);
+  border-radius: 8px;
+  padding: 8px;
+  margin: -8px;
+}
+
 body { 
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   margin: 0;

@@ -4,6 +4,22 @@ const statusEl = () => $('#status');
 const errorsEl = () => $('#errors');
 const resultsEl = () => $('#results');
 
+// 아코디언 토글 함수
+function toggleSection(sectionName) {
+    const content = document.getElementById(`${sectionName}-content`);
+    const chevron = document.getElementById(`${sectionName}-chevron`);
+    
+    if (content && chevron) {
+        content.classList.toggle('collapsed');
+        
+        if (content.classList.contains('collapsed')) {
+            chevron.style.transform = 'rotate(-90deg)';
+        } else {
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+}
+
 function setStatus(text) {
     statusEl().textContent = text;
 }
@@ -54,7 +70,7 @@ function setJSON(elSelector, data) {
 
 async function refreshCourtOptions() {
     const supabase = await ensureSupabaseReady();
-    const { data, error } = await supabase.from('P_court').select('id,name').order('name');
+    const { data, error } = await supabase.from('P_court').select('id,name').eq('active', true).order('name');
     if (error) throw error;
     const sel = document.querySelector('#pgameCourt');
     if (!sel) return;
@@ -91,7 +107,7 @@ async function pmemList() {
     try {
         const supabase = await ensureSupabaseReady();
         const [membersRes, statsMap] = await Promise.all([
-            supabase.from('P_member').select('*').order('created_at', { ascending: false }).limit(200),
+            supabase.from('P_member').select('*').order('name', { ascending: true }).limit(200),
             fetchMemberStats()
         ]);
         if (membersRes.error) throw membersRes.error;
@@ -251,14 +267,26 @@ async function deleteMember(memberId) {
 let currentEditingCourtId = null;
 
 async function pcourtList() {
-    setError(''); setStatus('Loading P_court...');
+    setError(''); setStatus('Loading active courts...');
+    try {
+        const supabase = await ensureSupabaseReady();
+        const { data, error } = await supabase.from('P_court').select('*').eq('active', true).order('name');
+        if (error) throw error;
+        renderCourtCards(data || []);
+        await refreshCourtOptions();
+        setStatus(`Loaded ${data?.length || 0} active courts`);
+    } catch (err) { setError(err); setStatus('Error'); }
+}
+
+async function pcourtListAll() {
+    setError(''); setStatus('Loading all courts...');
     try {
         const supabase = await ensureSupabaseReady();
         const { data, error } = await supabase.from('P_court').select('*').order('name');
         if (error) throw error;
         renderCourtCards(data || []);
         await refreshCourtOptions();
-        setStatus(`Loaded ${data?.length || 0} courts`);
+        setStatus(`Loaded ${data?.length || 0} courts (all)`);
     } catch (err) { setError(err); setStatus('Error'); }
 }
 
@@ -276,6 +304,11 @@ function renderCourtCards(courts) {
     courts.forEach(court => {
         const card = document.createElement('div');
         card.className = 'member-card';
+        const isActive = court.active === true; // 명시적으로 true인 경우만 활성
+        const activeStatus = isActive ? '활성' : '비활성';
+        const activeIcon = isActive ? 'fa-check-circle' : 'fa-times-circle';
+        const activeColor = isActive ? '#10b981' : '#ef4444';
+        
         card.innerHTML = `
             <div class="member-header">
                 <div class="member-photo-container">
@@ -284,14 +317,15 @@ function renderCourtCards(courts) {
                 <div class="member-info">
                     <h3>${court.name || 'Unknown'}</h3>
                     <p><i class="fas fa-calendar"></i> ${new Date(court.created_at).toLocaleDateString()}</p>
+                    <p><i class="fas ${activeIcon}" style="color:${activeColor};"></i> 상태: ${activeStatus}</p>
                 </div>
             </div>
             <div class="member-actions">
                 <button class="btn btn-secondary" onclick="editCourt('${court.id}')">
                     <i class="fas fa-edit"></i> Edit
                 </button>
-                <button class="btn btn-danger" onclick="deleteCourt('${court.id}')">
-                    <i class="fas fa-trash"></i> Delete
+                <button class="btn ${isActive ? 'btn-warning' : 'btn-success'}" onclick="toggleCourtActive('${court.id}', ${isActive})">
+                    <i class="fas ${isActive ? 'fa-pause' : 'fa-play'}"></i> ${isActive ? '비활성화' : '활성화'}
                 </button>
             </div>
         `;
@@ -306,6 +340,7 @@ function showCourtForm() {
         currentEditingCourtId = null;
         // Clear form
         document.querySelector('#pcourtName').value = '';
+        document.querySelector('#pcourtActive').checked = true;
     }
 }
 
@@ -325,18 +360,19 @@ async function pcourtSave() {
     setError(''); setStatus('Saving court...');
     try {
         const name = document.querySelector('#pcourtName')?.value.trim();
+        const active = document.querySelector('#pcourtActive')?.checked === true;
         if (!name) throw new Error('name 은 필수입니다.');
         
         const supabase = await ensureSupabaseReady();
         
         if (currentEditingCourtId) {
             // Update existing court
-            const { error } = await supabase.from('P_court').update({ name }).eq('id', currentEditingCourtId);
+            const { error } = await supabase.from('P_court').update({ name, active }).eq('id', currentEditingCourtId);
             if (error) throw error;
             setStatus('Court updated');
         } else {
             // Create new court
-            const { error } = await supabase.from('P_court').insert({ name });
+            const { error } = await supabase.from('P_court').insert({ name, active });
             if (error) throw error;
             setStatus('Court created');
         }
@@ -355,6 +391,7 @@ async function editCourt(courtId) {
         
         currentEditingCourtId = courtId;
         document.querySelector('#pcourtName').value = data.name || '';
+        document.querySelector('#pcourtActive').checked = data.active === true; // 명시적으로 true인 경우만 체크
         
         const form = document.querySelector('#pcourtForm');
         if (form) form.style.display = 'block';
@@ -363,16 +400,19 @@ async function editCourt(courtId) {
     } catch (err) { setError(err); setStatus('Error'); }
 }
 
-async function deleteCourt(courtId) {
-    if (!confirm('정말로 이 구장을 삭제하시겠습니까?')) return;
+async function toggleCourtActive(courtId, currentActive) {
+    const newActive = !currentActive;
+    const action = newActive ? '활성화' : '비활성화';
     
-    setError(''); setStatus('Deleting court...');
+    if (!confirm(`정말로 이 구장을 ${action}하시겠습니까?`)) return;
+    
+    setError(''); setStatus(`${action} 중...`);
     try {
         const supabase = await ensureSupabaseReady();
-        const { error } = await supabase.from('P_court').delete().eq('id', courtId);
+        const { error } = await supabase.from('P_court').update({ active: newActive }).eq('id', courtId);
         if (error) throw error;
         await pcourtList();
-        setStatus('Court deleted');
+        setStatus(`구장이 ${action}되었습니다`);
     } catch (err) { setError(err); setStatus('Error'); }
 }
 
@@ -515,7 +555,7 @@ async function pgameDelete() {
 function bindPickleballUI() {
     const mappings = [
         ['#pmemLoad', pmemList], ['#pmemCreate', pmemCreate], ['#pmemSave', pmemSave], ['#pmemCancel', hideMemberForm],
-        ['#pcourtLoad', pcourtList], ['#pcourtCreate', pcourtCreate], ['#pcourtSave', pcourtSave], ['#pcourtCancel', hideCourtForm],
+        ['#pcourtLoad', pcourtList], ['#pcourtLoadAll', pcourtListAll], ['#pcourtCreate', pcourtCreate], ['#pcourtSave', pcourtSave], ['#pcourtCancel', hideCourtForm],
         ['#pgameLoad', pgameList], ['#pgameCreate', pgameCreate], ['#pgameUpdate', pgameUpdate], ['#pgameDelete', pgameDelete],
     ];
     for (const [sel, fn] of mappings) {
@@ -529,7 +569,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { await Promise.all([refreshCourtOptions(), refreshMemberOptions()]); } catch (e) { /* ignore until tables exist */ }
     bindPickleballUI();
     updateLastUpdateDate();
+    initializeAccordion();
 });
+
+// 아코디언 초기화 - 첫 번째 섹션만 열어두기
+function initializeAccordion() {
+    // 회원과 구장 섹션을 기본적으로 접어두기
+    toggleSection('member');
+    toggleSection('court');
+}
 
 function updateLastUpdateDate() {
     // document.lastModified를 사용하여 index.html 파일의 수정일 가져오기

@@ -32,63 +32,11 @@
     </div>
 
   <div class="search-section">
-  <h2 style="margin-bottom:10px;"><i class="fas fa-user"></i> P_member (회원)</h2>
-  <div class="row">
-    <button id="pmemLoad">Load members</button>
-    <button id="pmemCreate">Add Member</button>
-  </div>
-  
-  <!-- Member Form (hidden by default) -->
-  <div id="pmemForm" style="display:none; margin-top:20px; padding:20px; background:#f7fafc; border-radius:8px;">
-    <h3>회원 정보</h3>
-    <div class="row">
-      <label for="pmemName">name</label>
-      <input id="pmemName" type="text" placeholder="홍길동" />
-    </div>
-    <div class="row">
-      <label for="pmemDept">department</label>
-      <input id="pmemDept" type="text" placeholder="영업팀" />
-    </div>
-    <div class="row">
-      <button id="pmemSave">Save</button>
-      <button id="pmemCancel">Cancel</button>
-    </div>
-  </div>
-  
-  <!-- Member Cards Grid -->
-  <div id="pmemGrid" class="members-grid" style="margin-top:20px;">
-    <!-- Member cards will be inserted here -->
-  </div>
-  </div>
-
-  <div class="search-section">
-  <h2 style="margin-bottom:10px;"><i class="fas fa-building"></i> P_court (구장)</h2>
-  <div class="row">
-    <button id="pcourtLoad">Load courts</button>
-    <button id="pcourtCreate">Add Court</button>
-  </div>
-  
-  <!-- Court Form (hidden by default) -->
-  <div id="pcourtForm" style="display:none; margin-top:20px; padding:20px; background:#f7fafc; border-radius:8px;">
-    <h3>구장 정보</h3>
-    <div class="row">
-      <label for="pcourtName">name</label>
-      <input id="pcourtName" type="text" placeholder="중앙체육관 A코트" />
-    </div>
-    <div class="row">
-      <button id="pcourtSave">Save</button>
-      <button id="pcourtCancel">Cancel</button>
-    </div>
-  </div>
-  
-  <!-- Court Cards Grid -->
-  <div id="pcourtGrid" class="members-grid" style="margin-top:20px;">
-    <!-- Court cards will be inserted here -->
-  </div>
-  </div>
-
-  <div class="search-section">
-  <h2 style="margin-bottom:10px;"><i class="fas fa-trophy"></i> P_game_result (게임결과)</h2>
+  <h2 style="margin-bottom:10px; cursor: pointer; user-select: none;" onclick="toggleSection('gameResult')">
+    <i class="fas fa-trophy"></i> P_game_result (게임결과)
+    <i class="fas fa-chevron-down" id="gameResult-chevron" style="float: right; transition: transform 0.3s ease;"></i>
+  </h2>
+  <div id="gameResult-content" class="section-content">
   <div class="row">
     <button id="pgameLoad">Load results</button>
   </div>
@@ -132,6 +80,78 @@
       </thead>
       <tbody id="pgameTableBody"></tbody>
     </table>
+  </div>
+  </div>
+  </div>
+
+  <div class="search-section">
+  <h2 style="margin-bottom:10px; cursor: pointer; user-select: none;" onclick="toggleSection('member')">
+    <i class="fas fa-user"></i> P_member (회원)
+    <i class="fas fa-chevron-down" id="member-chevron" style="float: right; transition: transform 0.3s ease;"></i>
+  </h2>
+  <div id="member-content" class="section-content">
+  <div class="row">
+    <button id="pmemLoad">Load members</button>
+    <button id="pmemCreate">Add Member</button>
+  </div>
+  
+  <!-- Member Form (hidden by default) -->
+  <div id="pmemForm" style="display:none; margin-top:20px; padding:20px; background:#f7fafc; border-radius:8px;">
+    <h3>회원 정보</h3>
+    <div class="row">
+      <label for="pmemName">name</label>
+      <input id="pmemName" type="text" placeholder="홍길동" />
+    </div>
+    <div class="row">
+      <label for="pmemDept">department</label>
+      <input id="pmemDept" type="text" placeholder="영업팀" />
+    </div>
+    <div class="row">
+      <button id="pmemSave">Save</button>
+      <button id="pmemCancel">Cancel</button>
+    </div>
+  </div>
+  
+  <!-- Member Cards Grid -->
+  <div id="pmemGrid" class="members-grid" style="margin-top:20px;">
+    <!-- Member cards will be inserted here -->
+  </div>
+  </div>
+  </div>
+
+  <div class="search-section">
+  <h2 style="margin-bottom:10px; cursor: pointer; user-select: none;" onclick="toggleSection('court')">
+    <i class="fas fa-building"></i> P_court (구장)
+    <i class="fas fa-chevron-down" id="court-chevron" style="float: right; transition: transform 0.3s ease;"></i>
+  </h2>
+  <div id="court-content" class="section-content">
+  <div class="row">
+    <button id="pcourtLoad">Load courts</button>
+    <button id="pcourtLoadAll">Load all courts</button>
+    <button id="pcourtCreate">Add Court</button>
+  </div>
+  
+  <!-- Court Form (hidden by default) -->
+  <div id="pcourtForm" style="display:none; margin-top:20px; padding:20px; background:#f7fafc; border-radius:8px;">
+    <h3>구장 정보</h3>
+    <div class="row">
+      <label for="pcourtName">name</label>
+      <input id="pcourtName" type="text" placeholder="중앙체육관 A코트" />
+    </div>
+    <div class="row">
+      <label for="pcourtActive">활성 상태</label>
+      <input id="pcourtActive" type="checkbox" checked />
+    </div>
+    <div class="row">
+      <button id="pcourtSave">Save</button>
+      <button id="pcourtCancel">Cancel</button>
+    </div>
+  </div>
+  
+  <!-- Court Cards Grid -->
+  <div id="pcourtGrid" class="members-grid" style="margin-top:20px;">
+    <!-- Court cards will be inserted here -->
+  </div>
   </div>
   </div>
 
