@@ -107,13 +107,43 @@ async function pmemList() {
     try {
         const supabase = await ensureSupabaseReady();
         const [membersRes, statsMap] = await Promise.all([
-            supabase.from('P_member').select('*').order('name', { ascending: true }).limit(200),
+            supabase.from('P_member').select('*').limit(200),
             fetchMemberStats()
         ]);
         if (membersRes.error) throw membersRes.error;
-        renderMemberCards(membersRes.data || [], statsMap);
-        setStatus(`Loaded ${membersRes.data?.length || 0} members`);
+        
+        // 정렬 옵션에 따라 회원 목록 정렬
+        const sortedMembers = sortMembers(membersRes.data || [], statsMap);
+        renderMemberCards(sortedMembers, statsMap);
+        setStatus(`Loaded ${sortedMembers.length} members`);
     } catch (err) { setError(err); setStatus('Error'); }
+}
+
+// 회원 정렬 함수
+function sortMembers(members, statsMap) {
+    const sortOption = document.querySelector('#pmemSort')?.value || 'name';
+    
+    return members.sort((a, b) => {
+        const statsA = statsMap?.get(a.id) || { wins: 0, losses: 0, participation: 0, dupr: 0 };
+        const statsB = statsMap?.get(b.id) || { wins: 0, losses: 0, participation: 0, dupr: 0 };
+        
+        switch (sortOption) {
+            case 'name':
+                return (a.name || '').localeCompare(b.name || '');
+            case 'dupr':
+                return statsB.dupr - statsA.dupr; // 높은 순
+            case 'games':
+                return statsB.participation - statsA.participation; // 높은 순
+            case 'winrate':
+                const winrateA = statsA.participation > 0 ? (statsA.wins / (statsA.wins + statsA.losses)) : 0;
+                const winrateB = statsB.participation > 0 ? (statsB.wins / (statsB.wins + statsB.losses)) : 0;
+                return winrateB - winrateA; // 높은 순
+            case 'wins':
+                return statsB.wins - statsA.wins; // 높은 순
+            default:
+                return (a.name || '').localeCompare(b.name || '');
+        }
+    });
 }
 
 async function fetchMemberStats() {
@@ -134,10 +164,41 @@ async function fetchMemberStats() {
             current.participation += 1;
             statsByMemberId.set(memberId, current);
         }
+        
+        // DUPR 점수 계산 추가
+        for (const [memberId, stats] of statsByMemberId) {
+            stats.dupr = calculateDUPR(stats.wins, stats.losses, stats.participation);
+        }
+        
         return statsByMemberId;
     } catch (_) {
         return new Map();
     }
+}
+
+// DUPR 점수 계산 함수
+function calculateDUPR(wins, losses, participation) {
+    if (participation === 0) return 0;
+    
+    const totalGames = wins + losses;
+    if (totalGames === 0) return 0;
+    
+    const winRate = wins / totalGames;
+    
+    // 기본 DUPR 계산 (간단한 버전)
+    let dupr = 0;
+    
+    if (winRate >= 0.9) dupr = 4.5 + (winRate - 0.9) * 5; // 90% 이상: 4.5-5.0
+    else if (winRate >= 0.8) dupr = 3.5 + (winRate - 0.8) * 10; // 80-90%: 3.5-4.5
+    else if (winRate >= 0.7) dupr = 2.5 + (winRate - 0.7) * 10; // 70-80%: 2.5-3.5
+    else if (winRate >= 0.6) dupr = 1.5 + (winRate - 0.6) * 10; // 60-70%: 1.5-2.5
+    else if (winRate >= 0.5) dupr = 0.5 + (winRate - 0.5) * 10; // 50-60%: 0.5-1.5
+    else dupr = winRate * 1; // 50% 미만: 0-0.5
+    
+    // 참여도 보정 (더 많은 경기에 참여할수록 신뢰도 증가)
+    const participationBonus = Math.min(participation * 0.01, 0.2); // 최대 0.2점 보너스
+    
+    return Math.round((dupr + participationBonus) * 100) / 100; // 소수점 둘째자리까지
 }
 
 function renderMemberCards(members, statsByMemberId) {
@@ -154,9 +215,21 @@ function renderMemberCards(members, statsByMemberId) {
     members.forEach(member => {
         const card = document.createElement('div');
         card.className = 'member-card';
-        const stats = statsByMemberId?.get(member.id) || { wins: 0, losses: 0, participation: 0 };
+        const stats = statsByMemberId?.get(member.id) || { wins: 0, losses: 0, participation: 0, dupr: 0 };
         const totalGames = (stats.wins || 0) + (stats.losses || 0);
         const winrate = totalGames > 0 ? Math.round((stats.wins / totalGames) * 100) : 0;
+        
+        // DUPR 등급 결정
+        const getDUPRGrade = (dupr) => {
+            if (dupr >= 4.0) return { grade: '전문가', color: '#dc2626', icon: 'fa-crown' };
+            else if (dupr >= 3.0) return { grade: '고급', color: '#ea580c', icon: 'fa-star' };
+            else if (dupr >= 2.0) return { grade: '중급', color: '#ca8a04', icon: 'fa-medal' };
+            else if (dupr >= 1.0) return { grade: '초급', color: '#16a34a', icon: 'fa-seedling' };
+            else return { grade: '입문', color: '#64748b', icon: 'fa-leaf' };
+        };
+        
+        const duprInfo = getDUPRGrade(stats.dupr);
+        
         card.innerHTML = `
             <div class="member-header">
                 <div class="member-photo-container">
@@ -167,6 +240,7 @@ function renderMemberCards(members, statsByMemberId) {
                     <p><i class="fas fa-building"></i> ${member.department || 'No Department'}</p>
                     <p><i class="fas fa-calendar"></i> ${new Date(member.created_at).toLocaleDateString()}</p>
                     <p><i class="fas fa-trophy"></i> 승률: ${winrate}% · wins: ${stats.wins || 0} · loss: ${stats.losses || 0} · 참여: ${stats.participation || 0}</p>
+                    <p><i class="fas ${duprInfo.icon}" style="color:${duprInfo.color};"></i> DUPR: <strong style="color:${duprInfo.color};">${stats.dupr.toFixed(2)}</strong> (${duprInfo.grade})</p>
                 </div>
             </div>
             <div class="member-actions">
@@ -611,6 +685,18 @@ function bindPickleballUI() {
         const nodes = document.querySelectorAll(sel);
         if (!nodes || nodes.length === 0) continue;
         nodes.forEach((el) => el.addEventListener('click', fn));
+    }
+    
+    // 회원 정렬 옵션 변경 이벤트 리스너
+    const pmemSortSelect = document.querySelector('#pmemSort');
+    if (pmemSortSelect) {
+        pmemSortSelect.addEventListener('change', () => {
+            // 현재 로드된 회원 데이터가 있으면 다시 정렬하여 표시
+            const grid = document.querySelector('#pmemGrid');
+            if (grid && grid.children.length > 0) {
+                pmemList(); // 회원 목록을 다시 로드하여 정렬 적용
+            }
+        });
     }
 }
 
