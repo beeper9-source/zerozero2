@@ -426,10 +426,34 @@ async function pgameList() {
             .from('P_game_result')
             .select('*, court:P_court(name), member:P_member(name)')
             .order('game_date', { ascending: false })
+            .order('wins', { ascending: false })
+            .order('losses', { ascending: true })
             .limit(200);
         if (error) throw error;
-        renderGameTable(data || []);
-        setStatus(`Loaded ${data?.length || 0} results`);
+        
+        // 승률 계산 및 정렬
+        const resultsWithWinrate = (data || []).map(row => {
+            const wins = row.wins || 0;
+            const losses = row.losses || 0;
+            const total = wins + losses;
+            const winrate = total > 0 ? (wins / total) * 100 : 0;
+            return { ...row, winrate };
+        });
+        
+        // 날짜 내림차순, 승률 내림차순으로 정렬
+        resultsWithWinrate.sort((a, b) => {
+            // 먼저 날짜로 정렬 (최신순)
+            const dateA = new Date(a.game_date);
+            const dateB = new Date(b.game_date);
+            if (dateA > dateB) return -1;
+            if (dateA < dateB) return 1;
+            
+            // 날짜가 같으면 승률로 정렬 (높은순)
+            return b.winrate - a.winrate;
+        });
+        
+        renderGameTable(resultsWithWinrate);
+        setStatus(`Loaded ${resultsWithWinrate.length} results`);
     } catch (err) { setError(err); setStatus('Error'); }
 }
 
@@ -467,20 +491,29 @@ function renderGameTable(results) {
             if (lossesInput) lossesInput.value = losses;
             setStatus('Selected row loaded to form');
         });
+        // 날짜 포맷팅 (MM/DD(요일) 형태)
+        const formatDate = (dateString) => {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+            const weekday = weekdays[date.getDay()];
+            return `${month}/${day}(${weekday})`;
+        };
+
         const tds = [
-            row.game_date || '-',
+            formatDate(row.game_date),
+            `${winrate}%(${wins}승/${losses}패)`,
             row.member?.name || '-',
-            row.court?.name || '-',
-            String(wins),
-            String(losses),
-            `${winrate}%`
+            row.court?.name || '-'
         ];
         tds.forEach((val, idx) => {
             const td = document.createElement('td');
             td.textContent = val;
             td.style.padding = '8px';
             td.style.borderBottom = '1px solid #e2e8f0';
-            if (idx >= 3) td.style.textAlign = 'right';
+            td.style.textAlign = 'center';
             tr.appendChild(td);
         });
         tbody.appendChild(tr);

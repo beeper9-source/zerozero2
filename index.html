@@ -66,16 +66,14 @@
     <button id="pgameDelete">Delete</button>
   </div>
   <!-- Game Results Table -->
-  <div style="overflow:auto; margin-top:20px;">
-    <table id="pgameTable" style="width:100%; border-collapse:collapse; background:#fff;">
+  <div style="overflow:auto; margin-top:20px; display:flex; justify-content:center;">
+    <table id="pgameTable" style="border-collapse:collapse; background:#fff; margin:0 auto;">
       <thead>
         <tr style="background:#f7fafc;">
-          <th style="text-align:left; padding:8px; border-bottom:1px solid #e2e8f0;">Date</th>
-          <th style="text-align:left; padding:8px; border-bottom:1px solid #e2e8f0;">Member</th>
-          <th style="text-align:left; padding:8px; border-bottom:1px solid #e2e8f0;">Court</th>
-          <th style="text-align:right; padding:8px; border-bottom:1px solid #e2e8f0;">Wins</th>
-          <th style="text-align:right; padding:8px; border-bottom:1px solid #e2e8f0;">Losses</th>
-          <th style="text-align:right; padding:8px; border-bottom:1px solid #e2e8f0;">Winrate</th>
+          <th style="text-align:center; padding:8px; border-bottom:1px solid #e2e8f0;">Date</th>
+          <th style="text-align:center; padding:8px; border-bottom:1px solid #e2e8f0;">Winrate</th>
+          <th style="text-align:center; padding:8px; border-bottom:1px solid #e2e8f0;">Member</th>
+          <th style="text-align:center; padding:8px; border-bottom:1px solid #e2e8f0;">Court</th>
         </tr>
       </thead>
       <tbody id="pgameTableBody"></tbody>
