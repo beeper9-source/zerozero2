@@ -241,6 +241,349 @@ function closeDUPRModal() {
     }
 }
 
+// 통계 데이터 수집 함수들
+async function fetchStatisticsData() {
+    try {
+        const supabase = await ensureSupabaseReady();
+        
+        // 모든 게임 결과 데이터 가져오기
+        const { data: gameResults, error: gameError } = await supabase
+            .from('P_game_result')
+            .select('member_id, court_id, game_date, wins, losses')
+            .order('game_date', { ascending: false })
+            .limit(2000);
+            
+        if (gameError) throw gameError;
+        
+        // 모든 회원 데이터 가져오기
+        const { data: members, error: memberError } = await supabase
+            .from('P_member')
+            .select('id, name, department')
+            .limit(2000);
+            
+        if (memberError) throw memberError;
+        
+        // 모든 구장 데이터 가져오기
+        const { data: courts, error: courtError } = await supabase
+            .from('P_court')
+            .select('id, name')
+            .eq('active', true)
+            .limit(2000);
+            
+        if (courtError) throw courtError;
+        
+        return {
+            gameResults: gameResults || [],
+            members: members || [],
+            courts: courts || []
+        };
+    } catch (err) {
+        console.error('통계 데이터 수집 중 오류:', err);
+        return {
+            gameResults: [],
+            members: [],
+            courts: []
+        };
+    }
+}
+
+// 월별 참석자 추이 계산
+function calculateMonthlyAttendance(gameResults) {
+    const monthlyData = new Map();
+    
+    gameResults.forEach(result => {
+        if (!result.game_date) return;
+        
+        const date = new Date(result.game_date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const monthName = `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
+        
+        if (!monthlyData.has(monthKey)) {
+            monthlyData.set(monthKey, {
+                month: monthName,
+                uniqueParticipants: new Set(),
+                totalGames: 0
+            });
+        }
+        
+        const monthData = monthlyData.get(monthKey);
+        monthData.uniqueParticipants.add(result.member_id);
+        monthData.totalGames += 1;
+    });
+    
+    return Array.from(monthlyData.values())
+        .map(data => ({
+            month: data.month,
+            participants: data.uniqueParticipants.size,
+            totalGames: data.totalGames
+        }))
+        .sort((a, b) => a.month.localeCompare(b.month));
+}
+
+// 구장별 참여일수 계산
+function calculateCourtParticipation(gameResults, courts) {
+    const courtData = new Map();
+    
+    // 구장별로 초기화
+    courts.forEach(court => {
+        courtData.set(court.id, {
+            name: court.name,
+            uniqueParticipants: new Set(),
+            totalGames: 0,
+            uniqueDates: new Set()
+        });
+    });
+    
+    // 게임 결과 데이터 처리
+    gameResults.forEach(result => {
+        if (!result.court_id || !result.game_date) return;
+        
+        const court = courtData.get(result.court_id);
+        if (!court) return;
+        
+        court.uniqueParticipants.add(result.member_id);
+        court.totalGames += 1;
+        court.uniqueDates.add(result.game_date);
+    });
+    
+    return Array.from(courtData.values())
+        .map(data => ({
+            name: data.name,
+            participants: data.uniqueParticipants.size,
+            totalGames: data.totalGames,
+            participationDays: data.uniqueDates.size
+        }))
+        .sort((a, b) => b.participationDays - a.participationDays);
+}
+
+// 회원별 활동 통계 계산
+function calculateMemberActivity(gameResults, members) {
+    const memberData = new Map();
+    
+    // 회원별로 초기화
+    members.forEach(member => {
+        memberData.set(member.id, {
+            name: member.name,
+            department: member.department,
+            totalGames: 0,
+            wins: 0,
+            losses: 0,
+            uniqueDates: new Set(),
+            courts: new Set()
+        });
+    });
+    
+    // 게임 결과 데이터 처리
+    gameResults.forEach(result => {
+        if (!result.member_id) return;
+        
+        const member = memberData.get(result.member_id);
+        if (!member) return;
+        
+        member.totalGames += 1;
+        member.wins += result.wins || 0;
+        member.losses += result.losses || 0;
+        member.uniqueDates.add(result.game_date);
+        if (result.court_id) member.courts.add(result.court_id);
+    });
+    
+    return Array.from(memberData.values())
+        .filter(data => data.totalGames > 0)
+        .map(data => ({
+            ...data,
+            winRate: data.totalGames > 0 ? Math.round((data.wins / (data.wins + data.losses)) * 100) : 0,
+            participationDays: data.uniqueDates.size,
+            courtsUsed: data.courts.size
+        }))
+        .sort((a, b) => b.totalGames - a.totalGames);
+}
+
+// 전체 요약 통계 계산
+function calculateOverallStats(gameResults, members, courts) {
+    const uniqueParticipants = new Set();
+    const uniqueDates = new Set();
+    const uniqueCourts = new Set();
+    let totalGames = 0;
+    let totalWins = 0;
+    let totalLosses = 0;
+    
+    gameResults.forEach(result => {
+        if (result.member_id) uniqueParticipants.add(result.member_id);
+        if (result.game_date) uniqueDates.add(result.game_date);
+        if (result.court_id) uniqueCourts.add(result.court_id);
+        totalGames += 1;
+        totalWins += result.wins || 0;
+        totalLosses += result.losses || 0;
+    });
+    
+    return {
+        totalMembers: members.length,
+        activeMembers: uniqueParticipants.size,
+        totalCourts: courts.length,
+        activeCourts: uniqueCourts.size,
+        totalGames: totalGames,
+        totalWins: totalWins,
+        totalLosses: totalLosses,
+        totalParticipationDays: uniqueDates.size,
+        averageGamesPerMember: uniqueParticipants.size > 0 ? Math.round(totalGames / uniqueParticipants.size * 10) / 10 : 0,
+        overallWinRate: totalGames > 0 ? Math.round((totalWins / (totalWins + totalLosses)) * 100) : 0
+    };
+}
+
+// 통계 데이터 렌더링 함수들
+function renderMonthlyAttendanceChart(monthlyData) {
+    const container = document.querySelector('#monthlyAttendanceChart');
+    if (!container) return;
+    
+    if (monthlyData.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#64748b; padding:40px;">데이터가 없습니다.</p>';
+        return;
+    }
+    
+    const maxParticipants = Math.max(...monthlyData.map(d => d.participants));
+    
+    let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
+    monthlyData.forEach(data => {
+        const percentage = maxParticipants > 0 ? (data.participants / maxParticipants) * 100 : 0;
+        html += `
+            <div style="display:flex; align-items:center; gap:15px;">
+                <div style="min-width:80px; font-weight:bold;">${data.month}</div>
+                <div style="flex:1; background:#e5e7eb; border-radius:4px; height:20px; position:relative;">
+                    <div style="background:#3b82f6; height:100%; border-radius:4px; width:${percentage}%; transition:width 0.3s ease;"></div>
+                </div>
+                <div style="min-width:60px; text-align:right; font-weight:bold; color:#1e40af;">${data.participants}명</div>
+                <div style="min-width:80px; text-align:right; color:#64748b; font-size:0.9em;">${data.totalGames}경기</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+function renderCourtParticipationChart(courtData) {
+    const container = document.querySelector('#courtParticipationChart');
+    if (!container) return;
+    
+    if (courtData.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#64748b; padding:40px;">데이터가 없습니다.</p>';
+        return;
+    }
+    
+    const maxDays = Math.max(...courtData.map(d => d.participationDays));
+    
+    let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
+    courtData.forEach(data => {
+        const percentage = maxDays > 0 ? (data.participationDays / maxDays) * 100 : 0;
+        html += `
+            <div style="display:flex; align-items:center; gap:15px;">
+                <div style="min-width:120px; font-weight:bold;">${data.name}</div>
+                <div style="flex:1; background:#e5e7eb; border-radius:4px; height:20px; position:relative;">
+                    <div style="background:#10b981; height:100%; border-radius:4px; width:${percentage}%; transition:width 0.3s ease;"></div>
+                </div>
+                <div style="min-width:60px; text-align:right; font-weight:bold; color:#059669;">${data.participationDays}일</div>
+                <div style="min-width:80px; text-align:right; color:#64748b; font-size:0.9em;">${data.participants}명</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+function renderMemberActivityStats(memberData) {
+    const container = document.querySelector('#memberActivityStats');
+    if (!container) return;
+    
+    if (memberData.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#64748b; padding:40px;">데이터가 없습니다.</p>';
+        return;
+    }
+    
+    // 상위 10명만 표시
+    const topMembers = memberData.slice(0, 10);
+    
+    let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
+    topMembers.forEach((member, index) => {
+        html += `
+            <div style="display:flex; align-items:center; gap:15px; padding:8px; background:#f9fafb; border-radius:6px;">
+                <div style="min-width:30px; text-align:center; font-weight:bold; color:#d97706;">${index + 1}</div>
+                <div style="min-width:100px; font-weight:bold;">${member.name}</div>
+                <div style="min-width:80px; color:#64748b; font-size:0.9em;">${member.department || 'No Dept'}</div>
+                <div style="min-width:60px; text-align:right; font-weight:bold; color:#d97706;">${member.totalGames}경기</div>
+                <div style="min-width:50px; text-align:right; color:#059669;">${member.winRate}%</div>
+                <div style="min-width:60px; text-align:right; color:#3b82f6;">${member.participationDays}일</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+function renderOverallStats(overallStats) {
+    const container = document.querySelector('#overallStats');
+    if (!container) return;
+    
+    let html = '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:20px;">';
+    
+    const stats = [
+        { label: '전체 회원', value: overallStats.totalMembers, icon: 'fa-users', color: '#8b5cf6' },
+        { label: '활동 회원', value: overallStats.activeMembers, icon: 'fa-user-check', color: '#10b981' },
+        { label: '전체 구장', value: overallStats.totalCourts, icon: 'fa-building', color: '#3b82f6' },
+        { label: '활동 구장', value: overallStats.activeCourts, icon: 'fa-building', color: '#059669' },
+        { label: '총 경기수', value: overallStats.totalGames, icon: 'fa-gamepad', color: '#f59e0b' },
+        { label: '총 승수', value: overallStats.totalWins, icon: 'fa-trophy', color: '#dc2626' },
+        { label: '총 패수', value: overallStats.totalLosses, icon: 'fa-times-circle', color: '#64748b' },
+        { label: '참여일수', value: overallStats.totalParticipationDays, icon: 'fa-calendar', color: '#7c3aed' },
+        { label: '회원당 평균 경기', value: overallStats.averageGamesPerMember, icon: 'fa-chart-line', color: '#ea580c' },
+        { label: '전체 승률', value: `${overallStats.overallWinRate}%`, icon: 'fa-percentage', color: '#16a34a' }
+    ];
+    
+    stats.forEach(stat => {
+        html += `
+            <div style="text-align:center; padding:20px; background:#f8fafc; border-radius:8px; border-left:4px solid ${stat.color};">
+                <i class="fas ${stat.icon}" style="font-size:24px; color:${stat.color}; margin-bottom:10px;"></i>
+                <div style="font-size:24px; font-weight:bold; color:${stat.color}; margin-bottom:5px;">${stat.value}</div>
+                <div style="color:#64748b; font-size:14px;">${stat.label}</div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// 통계 로드 함수
+async function loadStatistics() {
+    try {
+        setStatus('통계 데이터를 로드하는 중...');
+        
+        const data = await fetchStatisticsData();
+        
+        // 각 통계 계산 및 렌더링
+        const monthlyData = calculateMonthlyAttendance(data.gameResults);
+        const courtData = calculateCourtParticipation(data.gameResults, data.courts);
+        const memberData = calculateMemberActivity(data.gameResults, data.members);
+        const overallStats = calculateOverallStats(data.gameResults, data.members, data.courts);
+        
+        renderMonthlyAttendanceChart(monthlyData);
+        renderCourtParticipationChart(courtData);
+        renderMemberActivityStats(memberData);
+        renderOverallStats(overallStats);
+        
+        setStatus('통계 데이터 로드 완료');
+    } catch (err) {
+        setError(err);
+        setStatus('통계 로드 중 오류 발생');
+    }
+}
+
+// 통계 새로고침 함수
+function refreshStatistics() {
+    loadStatistics();
+}
+
 // 회원 정렬 함수
 function sortMembers(members, statsMap) {
     const sortOption = document.querySelector('#pmemSort')?.value || 'absent';
@@ -313,7 +656,7 @@ function hideAttendanceStatus() {
 
 // 테이블 헤더 업데이트 함수
 function updateTableHeader(sortOption) {
-    const duprHeader = document.querySelector('#pmemTable th:nth-child(4)');
+    const duprHeader = document.querySelector('#pmemTable th:nth-child(3)');
     if (!duprHeader) return;
     
     switch (sortOption) {
@@ -457,7 +800,7 @@ function renderMemberCards(members, statsByMemberId) {
     
     if (members.length === 0) {
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="5" style="text-align:center; padding:40px; color:#64748b;"><i class="fas fa-user-slash"></i> 등록된 회원이 없습니다.</td>';
+        row.innerHTML = '<td colspan="4" style="text-align:center; padding:40px; color:#64748b;"><i class="fas fa-user-slash"></i> 등록된 회원이 없습니다.</td>';
         tableBody.appendChild(row);
         return;
     }
@@ -533,8 +876,7 @@ function renderMemberCards(members, statsByMemberId) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td style="text-align:center;">${index + 1}</td>
-            <td style="text-align:center;">${member.name || 'Unknown'}</td>
-            <td style="text-align:center;">${member.department || 'No Department'}</td>
+            <td style="text-align:center;">${member.name || 'Unknown'}(${member.department || 'No Department'})</td>
             <td style="text-align:center;">${fourthColumnContent}</td>
             <td style="text-align:center;">${formatLastAttendance(stats.lastAttendanceDate)}</td>
         `;
@@ -973,6 +1315,7 @@ function bindPickleballUI() {
         ['#pmemLoad', pmemList], ['#pmemCreate', pmemCreate], ['#pmemSave', pmemSave], ['#pmemCancel', hideMemberForm], ['#pmemShowDUPRLogic', pmemShowDUPRLogic],
         ['#pcourtLoad', pcourtList], ['#pcourtLoadAll', pcourtListAll], ['#pcourtCreate', pcourtCreate], ['#pcourtSave', pcourtSave], ['#pcourtCancel', hideCourtForm],
         ['#pgameLoad', pgameList], ['#pgameCreate', pgameCreate], ['#pgameUpdate', pgameUpdate], ['#pgameDelete', pgameDelete],
+        ['#statisticsLoad', loadStatistics], ['#statisticsRefresh', refreshStatistics],
     ];
     for (const [sel, fn] of mappings) {
         const nodes = document.querySelectorAll(sel);

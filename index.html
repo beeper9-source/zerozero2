@@ -140,8 +140,7 @@
       <thead>
         <tr>
           <th style="text-align:center; width:60px;">No</th>
-          <th style="text-align:center;">이름</th>
-          <th style="text-align:center;">부서</th>
+          <th style="text-align:center;">이름(부서)</th>
           <th style="text-align:center;">DUPR</th>
           <th style="text-align:center;">최종참석일</th>
         </tr>
@@ -186,6 +185,55 @@
   <!-- Court Cards Grid -->
   <div id="pcourtGrid" class="members-grid" style="margin-top:20px;">
     <!-- Court cards will be inserted here -->
+  </div>
+  </div>
+  </div>
+
+  <!-- 통계분석 섹션 -->
+  <div class="search-section">
+  <h2 style="margin-bottom:10px; cursor: pointer; user-select: none;" onclick="toggleSection('statistics')">
+    <i class="fas fa-chart-bar"></i> 통계분석 (Statistics)
+    <i class="fas fa-chevron-down" id="statistics-chevron" style="float: right; transition: transform 0.3s ease;"></i>
+  </h2>
+  <div id="statistics-content" class="section-content">
+  <div class="row">
+    <button id="statisticsLoad">통계 로드</button>
+    <button id="statisticsRefresh">새로고침</button>
+  </div>
+  
+  <!-- 통계 데이터 표시 영역 -->
+  <div id="statisticsContainer" style="margin-top:20px;">
+    <!-- 월별 참석자 추이 -->
+    <div class="statistics-card" style="margin-bottom:20px; padding:20px; background:#f8fafc; border-radius:8px; border-left:4px solid #3b82f6;">
+      <h3 style="margin:0 0 15px 0; color:#1e40af;"><i class="fas fa-calendar-alt"></i> 월별 참석자 추이</h3>
+      <div id="monthlyAttendanceChart" style="min-height:200px;">
+        <!-- 차트 데이터가 여기에 표시됩니다 -->
+      </div>
+    </div>
+    
+    <!-- 구장별 참여일수 -->
+    <div class="statistics-card" style="margin-bottom:20px; padding:20px; background:#f8fafc; border-radius:8px; border-left:4px solid #10b981;">
+      <h3 style="margin:0 0 15px 0; color:#059669;"><i class="fas fa-building"></i> 구장별 참여일수</h3>
+      <div id="courtParticipationChart" style="min-height:200px;">
+        <!-- 차트 데이터가 여기에 표시됩니다 -->
+      </div>
+    </div>
+    
+    <!-- 회원별 활동 통계 -->
+    <div class="statistics-card" style="margin-bottom:20px; padding:20px; background:#f8fafc; border-radius:8px; border-left:4px solid #f59e0b;">
+      <h3 style="margin:0 0 15px 0; color:#d97706;"><i class="fas fa-users"></i> 회원별 활동 통계</h3>
+      <div id="memberActivityStats" style="min-height:200px;">
+        <!-- 통계 데이터가 여기에 표시됩니다 -->
+      </div>
+    </div>
+    
+    <!-- 전체 요약 통계 -->
+    <div class="statistics-card" style="margin-bottom:20px; padding:20px; background:#f8fafc; border-radius:8px; border-left:4px solid #8b5cf6;">
+      <h3 style="margin:0 0 15px 0; color:#7c3aed;"><i class="fas fa-chart-pie"></i> 전체 요약 통계</h3>
+      <div id="overallStats" style="min-height:200px;">
+        <!-- 요약 통계가 여기에 표시됩니다 -->
+      </div>
+    </div>
   </div>
   </div>
   </div>
