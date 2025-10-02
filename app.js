@@ -115,6 +115,13 @@ async function pmemList() {
         // 정렬 옵션에 따라 회원 목록 정렬
         const sortedMembers = sortMembers(membersRes.data || [], statsMap);
         renderMemberCards(sortedMembers, statsMap);
+        
+        // 기본 정렬이 "이번달 불참"인 경우 참석 현황 메시지 표시
+        const sortOption = document.querySelector('#pmemSort')?.value || 'absent';
+        if (sortOption === 'absent') {
+            updateAttendanceStatus(statsMap);
+        }
+        
         setStatus(`Loaded ${sortedMembers.length} members`);
     } catch (err) { setError(err); setStatus('Error'); }
 }
@@ -226,7 +233,7 @@ function closeDUPRModal() {
 
 // 회원 정렬 함수
 function sortMembers(members, statsMap) {
-    const sortOption = document.querySelector('#pmemSort')?.value || 'name';
+    const sortOption = document.querySelector('#pmemSort')?.value || 'absent';
     
     return members.sort((a, b) => {
         const statsA = statsMap?.get(a.id) || { wins: 0, losses: 0, participation: 0, dupr: 0 };
