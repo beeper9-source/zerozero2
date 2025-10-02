@@ -119,6 +119,111 @@ async function pmemList() {
     } catch (err) { setError(err); setStatus('Error'); }
 }
 
+// DUPR 점수 산정 로직 표시 함수
+function pmemShowDUPRLogic() {
+    setError('');
+    setStatus('DUPR 점수 산정 로직을 표시합니다...');
+    
+    // DUPR 점수 산정 로직 설명
+    const duprLogic = `
+🎯 DUPR (Dynamic Universal Pickleball Rating) 점수 산정 로직
+
+📊 기본 점수 계산:
+• 90% 이상 승률: 4.5-5.0점
+• 80-90% 승률: 3.5-4.5점  
+• 70-80% 승률: 2.5-3.5점
+• 60-70% 승률: 1.5-2.5점
+• 50-60% 승률: 0.5-1.5점
+• 50% 미만 승률: 0-0.5점
+
+🏆 등급 시스템:
+• 전문가 (4.0+): 👑 빨간색 - 최고 실력자
+• 고급 (3.0+): ⭐ 주황색 - 상급 실력자  
+• 중급 (2.0+): 🏅 노란색 - 중급 실력자
+• 초급 (1.0+): 🌱 초록색 - 초급 실력자
+• 입문 (1.0 미만): 🍃 회색 - 입문자
+
+📈 참여도 보정:
+• 경기 참여 횟수에 따라 최대 0.2점 보너스
+• 더 많은 경기 참여 시 신뢰도 증가
+• 참여도 = 경기 결과 기록 횟수
+
+💡 계산 공식:
+DUPR = 기본점수 + 참여도보정(최대 0.2점)
+최종 점수는 소수점 둘째자리까지 반올림
+    `;
+    
+    // 모달 창으로 표시
+    showDUPRLogicModal(duprLogic);
+    setStatus('DUPR 점수 산정 로직 표시 완료');
+}
+
+// DUPR 로직 모달 표시 함수
+function showDUPRLogicModal(content) {
+    // 기존 모달이 있으면 제거
+    const existingModal = document.querySelector('#duprLogicModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // 모달 생성
+    const modal = document.createElement('div');
+    modal.id = 'duprLogicModal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        position: relative;
+    `;
+    
+    modalContent.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0; color: #1f2937;">🎯 DUPR 점수 산정 로직</h2>
+            <button onclick="closeDUPRModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+        </div>
+        <div style="white-space: pre-line; line-height: 1.6; color: #374151; font-family: 'Courier New', monospace; background: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #10b981;">${content}</div>
+        <div style="margin-top: 20px; text-align: center;">
+            <button onclick="closeDUPRModal()" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px;">확인</button>
+        </div>
+    `;
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // 모달 외부 클릭 시 닫기
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeDUPRModal();
+        }
+    });
+}
+
+// DUPR 모달 닫기 함수
+function closeDUPRModal() {
+    const modal = document.querySelector('#duprLogicModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
 // 회원 정렬 함수
 function sortMembers(members, statsMap) {
     const sortOption = document.querySelector('#pmemSort')?.value || 'name';
@@ -677,7 +782,7 @@ async function pgameDelete() {
 
 function bindPickleballUI() {
     const mappings = [
-        ['#pmemLoad', pmemList], ['#pmemCreate', pmemCreate], ['#pmemSave', pmemSave], ['#pmemCancel', hideMemberForm],
+        ['#pmemLoad', pmemList], ['#pmemCreate', pmemCreate], ['#pmemSave', pmemSave], ['#pmemCancel', hideMemberForm], ['#pmemShowDUPRLogic', pmemShowDUPRLogic],
         ['#pcourtLoad', pcourtList], ['#pcourtLoadAll', pcourtListAll], ['#pcourtCreate', pcourtCreate], ['#pcourtSave', pcourtSave], ['#pcourtCancel', hideCourtForm],
         ['#pgameLoad', pgameList], ['#pgameCreate', pgameCreate], ['#pgameUpdate', pgameUpdate], ['#pgameDelete', pgameDelete],
     ];
