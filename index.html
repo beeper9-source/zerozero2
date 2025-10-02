@@ -100,7 +100,7 @@
     <select id="pmemSort" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
       <option value="name">이름순</option>
       <option value="dupr">DUPR 점수</option>
-      <option value="games">경기수</option>
+      <option value="games">참여일수</option>
       <option value="winrate">승률</option>
       <option value="wins">승수</option>
       <option value="absent" selected>이번달 불참</option>
@@ -134,9 +134,22 @@
     </div>
   </div>
   
-  <!-- Member Cards Grid -->
-  <div id="pmemGrid" class="members-grid" style="margin-top:20px;">
-    <!-- Member cards will be inserted here -->
+  <!-- Member List Table -->
+  <div style="margin-top:20px;">
+    <table id="pmemTable" style="width:100%; margin:0 auto;">
+      <thead>
+        <tr>
+          <th style="text-align:center; width:60px;">No</th>
+          <th style="text-align:center;">이름</th>
+          <th style="text-align:center;">부서</th>
+          <th style="text-align:center;">DUPR</th>
+          <th style="text-align:center;">최종참석일</th>
+        </tr>
+      </thead>
+      <tbody id="pmemTableBody">
+        <!-- Member rows will be inserted here -->
+      </tbody>
+    </table>
   </div>
   </div>
   </div>

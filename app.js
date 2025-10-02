@@ -125,6 +125,9 @@ async function pmemList() {
             sortSelect.value = 'absent';
         }
         
+        // 테이블 헤더 업데이트
+        updateTableHeader(sortOption);
+        
         if (sortOption === 'absent') {
             updateAttendanceStatus(statsMap);
         }
@@ -308,6 +311,27 @@ function hideAttendanceStatus() {
     }
 }
 
+// 테이블 헤더 업데이트 함수
+function updateTableHeader(sortOption) {
+    const duprHeader = document.querySelector('#pmemTable th:nth-child(4)');
+    if (!duprHeader) return;
+    
+    switch (sortOption) {
+        case 'games':
+            duprHeader.textContent = '참여일수';
+            break;
+        case 'winrate':
+            duprHeader.textContent = '승률';
+            break;
+        case 'wins':
+            duprHeader.textContent = '승수';
+            break;
+        default:
+            duprHeader.textContent = 'DUPR';
+            break;
+    }
+}
+
 async function fetchMemberStats() {
     try {
         const supabase = await ensureSupabaseReady();
@@ -319,7 +343,7 @@ async function fetchMemberStats() {
         const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
         const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
         
-        const [allDataRes, thisMonthDataRes] = await Promise.all([
+        const [allDataRes, thisMonthDataRes, lastAttendanceRes] = await Promise.all([
             supabase
                 .from('P_game_result')
                 .select('member_id,wins,losses')
@@ -329,11 +353,17 @@ async function fetchMemberStats() {
                 .select('member_id,game_date')
                 .gte('game_date', firstDayOfMonth.toISOString().split('T')[0])
                 .lte('game_date', lastDayOfMonth.toISOString().split('T')[0])
+                .limit(2000),
+            supabase
+                .from('P_game_result')
+                .select('member_id,game_date')
+                .order('game_date', { ascending: false })
                 .limit(2000)
         ]);
         
         if (allDataRes.error) throw allDataRes.error;
         if (thisMonthDataRes.error) throw thisMonthDataRes.error;
+        if (lastAttendanceRes.error) throw lastAttendanceRes.error;
         
         const statsByMemberId = new Map();
         
@@ -359,7 +389,17 @@ async function fetchMemberStats() {
             statsByMemberId.set(memberId, current);
         }
         
-        // 모든 회원에 대해 이번달 불참 정보 추가
+        // 최종참석일 계산
+        const lastAttendanceByMember = new Map();
+        for (const row of lastAttendanceRes.data || []) {
+            const memberId = row.member_id;
+            if (!memberId) continue;
+            if (!lastAttendanceByMember.has(memberId)) {
+                lastAttendanceByMember.set(memberId, row.game_date);
+            }
+        }
+        
+        // 모든 회원에 대해 이번달 불참 정보 및 최종참석일 추가
         const { data: allMembers } = await supabase
             .from('P_member')
             .select('id')
@@ -369,6 +409,7 @@ async function fetchMemberStats() {
             const memberId = member.id;
             const current = statsByMemberId.get(memberId) || { wins: 0, losses: 0, participation: 0, thisMonthParticipation: 0 };
             current.isAbsentThisMonth = !thisMonthParticipants.has(memberId);
+            current.lastAttendanceDate = lastAttendanceByMember.get(memberId) || null;
             statsByMemberId.set(memberId, current);
         }
         
@@ -409,22 +450,31 @@ function calculateDUPR(wins, losses, participation) {
 }
 
 function renderMemberCards(members, statsByMemberId) {
-    const grid = document.querySelector('#pmemGrid');
-    if (!grid) return;
+    const tableBody = document.querySelector('#pmemTableBody');
+    if (!tableBody) return;
     
-    grid.innerHTML = '';
+    tableBody.innerHTML = '';
     
     if (members.length === 0) {
-        grid.innerHTML = '<div class="no-members"><i class="fas fa-user-slash"></i><p>등록된 회원이 없습니다.</p></div>';
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="5" style="text-align:center; padding:40px; color:#64748b;"><i class="fas fa-user-slash"></i> 등록된 회원이 없습니다.</td>';
+        tableBody.appendChild(row);
         return;
     }
     
-    members.forEach(member => {
-        const card = document.createElement('div');
-        card.className = 'member-card';
-        const stats = statsByMemberId?.get(member.id) || { wins: 0, losses: 0, participation: 0, dupr: 0, thisMonthParticipation: 0, isAbsentThisMonth: false };
-        const totalGames = (stats.wins || 0) + (stats.losses || 0);
-        const winrate = totalGames > 0 ? Math.round((stats.wins / totalGames) * 100) : 0;
+    // 현재 정렬 옵션 가져오기
+    const sortOption = document.querySelector('#pmemSort')?.value || 'absent';
+    
+    members.forEach((member, index) => {
+        const stats = statsByMemberId?.get(member.id) || { 
+            wins: 0, 
+            losses: 0, 
+            participation: 0, 
+            dupr: 0, 
+            thisMonthParticipation: 0, 
+            isAbsentThisMonth: false,
+            lastAttendanceDate: null
+        };
         
         // DUPR 등급 결정
         const getDUPRGrade = (dupr) => {
@@ -437,30 +487,65 @@ function renderMemberCards(members, statsByMemberId) {
         
         const duprInfo = getDUPRGrade(stats.dupr);
         
-        card.innerHTML = `
-            <div class="member-header">
-                <div class="member-photo-container">
-                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcj0iNDAiIGZpbGw9IiNlMmU4ZjAiLz4KPHN2ZyB4PSIyMCIgeT0iMjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTIgMTJaIiBmaWxsPSIjYTBhZWMwIi8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDE0IDcgMTUuMzMgNyAxOEgxN0MxNyAxNS4zMyAxNC42NyAxNCAxMiAxNFoiIGZpbGw9IiNhMGFlYzAiLz4KPC9zdmc+Cjwvc3ZnPgo=" class="member-photo" alt="Profile">
-                </div>
-                <div class="member-info">
-                    <h3>${member.name || 'Unknown'}</h3>
-                    <p><i class="fas fa-building"></i> ${member.department || 'No Department'}</p>
-                    <p><i class="fas fa-calendar"></i> ${new Date(member.created_at).toLocaleDateString()}</p>
-                    <p><i class="fas fa-trophy"></i> 승률: ${winrate}% · wins: ${stats.wins || 0} · loss: ${stats.losses || 0} · 참여: ${stats.participation || 0}</p>
-                    <p><i class="fas ${duprInfo.icon}" style="color:${duprInfo.color};"></i> DUPR: <strong style="color:${duprInfo.color};">${stats.dupr.toFixed(2)}</strong> (${duprInfo.grade})</p>
-                    <p><i class="fas ${stats.isAbsentThisMonth ? 'fa-times-circle' : 'fa-check-circle'}" style="color:${stats.isAbsentThisMonth ? '#ef4444' : '#10b981'};"></i> 이번달: ${stats.isAbsentThisMonth ? '불참' : '참석'} (${stats.thisMonthParticipation || 0}회)</p>
-                </div>
-            </div>
-            <div class="member-actions">
-                <button class="btn btn-secondary" onclick="editMember('${member.id}')">
-                    <i class="fas fa-edit"></i> Edit
-                </button>
-                <button class="btn btn-danger" onclick="deleteMember('${member.id}')">
-                    <i class="fas fa-trash"></i> Delete
-                </button>
-            </div>
+        // 최종참석일 포맷팅
+        const formatLastAttendance = (dateString) => {
+            if (!dateString) return '미참석';
+            const date = new Date(dateString);
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+            const weekday = weekdays[date.getDay()];
+            return `${month}/${day}(${weekday})`;
+        };
+        
+        // 정렬 기준에 따른 4번째 컬럼 내용 결정
+        let fourthColumnContent = '';
+        switch (sortOption) {
+            case 'games':
+                fourthColumnContent = `
+                    <i class="fas fa-calendar-check" style="color:#3b82f6;"></i> 
+                    <strong style="color:#3b82f6;">${stats.participation || 0}</strong> 일
+                `;
+                break;
+            case 'winrate':
+                const totalGames = (stats.wins || 0) + (stats.losses || 0);
+                const winrate = totalGames > 0 ? Math.round((stats.wins / totalGames) * 100) : 0;
+                fourthColumnContent = `
+                    <i class="fas fa-percentage" style="color:#10b981;"></i> 
+                    <strong style="color:#10b981;">${winrate}%</strong>
+                `;
+                break;
+            case 'wins':
+                fourthColumnContent = `
+                    <i class="fas fa-trophy" style="color:#f59e0b;"></i> 
+                    <strong style="color:#f59e0b;">${stats.wins || 0}</strong> 승
+                `;
+                break;
+            default:
+                fourthColumnContent = `
+                    <i class="fas ${duprInfo.icon}" style="color:${duprInfo.color};"></i> 
+                    <strong style="color:${duprInfo.color};">${stats.dupr.toFixed(2)}</strong> 
+                    (${duprInfo.grade})
+                `;
+                break;
+        }
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td style="text-align:center;">${index + 1}</td>
+            <td style="text-align:center;">${member.name || 'Unknown'}</td>
+            <td style="text-align:center;">${member.department || 'No Department'}</td>
+            <td style="text-align:center;">${fourthColumnContent}</td>
+            <td style="text-align:center;">${formatLastAttendance(stats.lastAttendanceDate)}</td>
         `;
-        grid.appendChild(card);
+        
+        // 불참 회원인 경우 행 배경색 변경
+        if (stats.isAbsentThisMonth) {
+            row.style.backgroundColor = '#fef2f2';
+            row.style.color = '#dc2626';
+        }
+        
+        tableBody.appendChild(row);
     });
 }
 
@@ -901,11 +986,14 @@ function bindPickleballUI() {
         pmemSortSelect.addEventListener('change', async () => {
             const sortOption = pmemSortSelect.value;
             
+            // 테이블 헤더 업데이트
+            updateTableHeader(sortOption);
+            
             // 이번달 불참 정렬을 선택한 경우 참석 현황 메시지 표시
             if (sortOption === 'absent') {
                 // 현재 로드된 회원 데이터가 있으면 통계 정보를 가져와서 메시지 표시
-                const grid = document.querySelector('#pmemGrid');
-                if (grid && grid.children.length > 0) {
+                const tableBody = document.querySelector('#pmemTableBody');
+                if (tableBody && tableBody.children.length > 0) {
                     try {
                         const statsMap = await fetchMemberStats();
                         updateAttendanceStatus(statsMap);
@@ -919,8 +1007,8 @@ function bindPickleballUI() {
             }
             
             // 현재 로드된 회원 데이터가 있으면 다시 정렬하여 표시
-            const grid = document.querySelector('#pmemGrid');
-            if (grid && grid.children.length > 0) {
+            const tableBody = document.querySelector('#pmemTableBody');
+            if (tableBody && tableBody.children.length > 0) {
                 pmemList(); // 회원 목록을 다시 로드하여 정렬 적용
             }
         });
