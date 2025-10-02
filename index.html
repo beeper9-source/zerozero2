@@ -103,7 +103,18 @@
       <option value="games">경기수</option>
       <option value="winrate">승률</option>
       <option value="wins">승수</option>
+      <option value="absent">이번달 불참</option>
     </select>
+  </div>
+  
+  <!-- Attendance Status Message -->
+  <div id="attendanceStatus" style="display: none; margin-top: 15px; padding: 15px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 10px; border-left: 4px solid #f59e0b; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <i class="fas fa-info-circle" style="color: #f59e0b; font-size: 18px;"></i>
+      <div>
+        <p style="margin: 0; font-weight: 600; color: #92400e; font-size: 16px;" id="attendanceMessage"></p>
+      </div>
+    </div>
   </div>
   
   <!-- Member Form (hidden by default) -->

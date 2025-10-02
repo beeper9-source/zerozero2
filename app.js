@@ -245,28 +245,116 @@ function sortMembers(members, statsMap) {
                 return winrateB - winrateA; // 높은 순
             case 'wins':
                 return statsB.wins - statsA.wins; // 높은 순
+            case 'absent':
+                // 이번달 불참 회원을 먼저 표시 (true가 먼저)
+                if (statsA.isAbsentThisMonth && !statsB.isAbsentThisMonth) return -1;
+                if (!statsA.isAbsentThisMonth && statsB.isAbsentThisMonth) return 1;
+                // 둘 다 불참이거나 둘 다 참석인 경우 이름순으로 정렬
+                return (a.name || '').localeCompare(b.name || '');
             default:
                 return (a.name || '').localeCompare(b.name || '');
         }
     });
 }
 
+// 참석 현황 계산 및 표시 함수
+function updateAttendanceStatus(statsByMemberId) {
+    const attendanceStatusDiv = document.querySelector('#attendanceStatus');
+    const attendanceMessage = document.querySelector('#attendanceMessage');
+    
+    if (!attendanceStatusDiv || !attendanceMessage) return;
+    
+    // 전체 회원 수와 이번달 참석 회원 수 계산
+    let totalMembers = 0;
+    let attendedMembers = 0;
+    
+    for (const [memberId, stats] of statsByMemberId) {
+        totalMembers++;
+        if (!stats.isAbsentThisMonth) {
+            attendedMembers++;
+        }
+    }
+    
+    const absentMembers = totalMembers - attendedMembers;
+    const requiredMembers = 30; // 목표 참석 인원
+    const shortage = Math.max(0, requiredMembers - attendedMembers);
+    
+    // 메시지 업데이트
+    attendanceMessage.textContent = `이번달 ${requiredMembers}명이 참석을 해야 하는데 현재 ${attendedMembers}명이 참석을 해서 ${shortage}명이 부족합니다.`;
+    
+    // 메시지 표시
+    attendanceStatusDiv.style.display = 'block';
+}
+
+// 참석 현황 메시지 숨기기 함수
+function hideAttendanceStatus() {
+    const attendanceStatusDiv = document.querySelector('#attendanceStatus');
+    if (attendanceStatusDiv) {
+        attendanceStatusDiv.style.display = 'none';
+    }
+}
+
 async function fetchMemberStats() {
     try {
         const supabase = await ensureSupabaseReady();
-        const { data, error } = await supabase
-            .from('P_game_result')
-            .select('member_id,wins,losses')
-            .limit(2000);
-        if (error) throw error;
+        
+        // 이번달 날짜 범위 계산
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+        const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+        
+        const [allDataRes, thisMonthDataRes] = await Promise.all([
+            supabase
+                .from('P_game_result')
+                .select('member_id,wins,losses')
+                .limit(2000),
+            supabase
+                .from('P_game_result')
+                .select('member_id,game_date')
+                .gte('game_date', firstDayOfMonth.toISOString().split('T')[0])
+                .lte('game_date', lastDayOfMonth.toISOString().split('T')[0])
+                .limit(2000)
+        ]);
+        
+        if (allDataRes.error) throw allDataRes.error;
+        if (thisMonthDataRes.error) throw thisMonthDataRes.error;
+        
         const statsByMemberId = new Map();
-        for (const row of data || []) {
+        
+        // 전체 통계 계산
+        for (const row of allDataRes.data || []) {
             const memberId = row.member_id;
             if (!memberId) continue;
-            const current = statsByMemberId.get(memberId) || { wins: 0, losses: 0, participation: 0 };
+            const current = statsByMemberId.get(memberId) || { wins: 0, losses: 0, participation: 0, thisMonthParticipation: 0 };
             current.wins += Number(row.wins || 0);
             current.losses += Number(row.losses || 0);
             current.participation += 1;
+            statsByMemberId.set(memberId, current);
+        }
+        
+        // 이번달 참여 통계 계산
+        const thisMonthParticipants = new Set();
+        for (const row of thisMonthDataRes.data || []) {
+            const memberId = row.member_id;
+            if (!memberId) continue;
+            thisMonthParticipants.add(memberId);
+            const current = statsByMemberId.get(memberId) || { wins: 0, losses: 0, participation: 0, thisMonthParticipation: 0 };
+            current.thisMonthParticipation += 1;
+            statsByMemberId.set(memberId, current);
+        }
+        
+        // 모든 회원에 대해 이번달 불참 정보 추가
+        const { data: allMembers } = await supabase
+            .from('P_member')
+            .select('id')
+            .limit(2000);
+            
+        for (const member of allMembers || []) {
+            const memberId = member.id;
+            const current = statsByMemberId.get(memberId) || { wins: 0, losses: 0, participation: 0, thisMonthParticipation: 0 };
+            current.isAbsentThisMonth = !thisMonthParticipants.has(memberId);
             statsByMemberId.set(memberId, current);
         }
         
@@ -320,7 +408,7 @@ function renderMemberCards(members, statsByMemberId) {
     members.forEach(member => {
         const card = document.createElement('div');
         card.className = 'member-card';
-        const stats = statsByMemberId?.get(member.id) || { wins: 0, losses: 0, participation: 0, dupr: 0 };
+        const stats = statsByMemberId?.get(member.id) || { wins: 0, losses: 0, participation: 0, dupr: 0, thisMonthParticipation: 0, isAbsentThisMonth: false };
         const totalGames = (stats.wins || 0) + (stats.losses || 0);
         const winrate = totalGames > 0 ? Math.round((stats.wins / totalGames) * 100) : 0;
         
@@ -346,6 +434,7 @@ function renderMemberCards(members, statsByMemberId) {
                     <p><i class="fas fa-calendar"></i> ${new Date(member.created_at).toLocaleDateString()}</p>
                     <p><i class="fas fa-trophy"></i> 승률: ${winrate}% · wins: ${stats.wins || 0} · loss: ${stats.losses || 0} · 참여: ${stats.participation || 0}</p>
                     <p><i class="fas ${duprInfo.icon}" style="color:${duprInfo.color};"></i> DUPR: <strong style="color:${duprInfo.color};">${stats.dupr.toFixed(2)}</strong> (${duprInfo.grade})</p>
+                    <p><i class="fas ${stats.isAbsentThisMonth ? 'fa-times-circle' : 'fa-check-circle'}" style="color:${stats.isAbsentThisMonth ? '#ef4444' : '#10b981'};"></i> 이번달: ${stats.isAbsentThisMonth ? '불참' : '참석'} (${stats.thisMonthParticipation || 0}회)</p>
                 </div>
             </div>
             <div class="member-actions">
@@ -795,7 +884,26 @@ function bindPickleballUI() {
     // 회원 정렬 옵션 변경 이벤트 리스너
     const pmemSortSelect = document.querySelector('#pmemSort');
     if (pmemSortSelect) {
-        pmemSortSelect.addEventListener('change', () => {
+        pmemSortSelect.addEventListener('change', async () => {
+            const sortOption = pmemSortSelect.value;
+            
+            // 이번달 불참 정렬을 선택한 경우 참석 현황 메시지 표시
+            if (sortOption === 'absent') {
+                // 현재 로드된 회원 데이터가 있으면 통계 정보를 가져와서 메시지 표시
+                const grid = document.querySelector('#pmemGrid');
+                if (grid && grid.children.length > 0) {
+                    try {
+                        const statsMap = await fetchMemberStats();
+                        updateAttendanceStatus(statsMap);
+                    } catch (err) {
+                        console.error('참석 현황 계산 중 오류:', err);
+                    }
+                }
+            } else {
+                // 다른 정렬 옵션을 선택한 경우 참석 현황 메시지 숨기기
+                hideAttendanceStatus();
+            }
+            
             // 현재 로드된 회원 데이터가 있으면 다시 정렬하여 표시
             const grid = document.querySelector('#pmemGrid');
             if (grid && grid.children.length > 0) {
