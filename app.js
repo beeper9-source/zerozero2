@@ -117,7 +117,14 @@ async function pmemList() {
         renderMemberCards(sortedMembers, statsMap);
         
         // 기본 정렬이 "이번달 불참"인 경우 참석 현황 메시지 표시
-        const sortOption = document.querySelector('#pmemSort')?.value || 'absent';
+        const sortSelect = document.querySelector('#pmemSort');
+        const sortOption = sortSelect?.value || 'absent';
+        
+        // 초기 로드 시 정렬 옵션을 "이번달 불참"으로 설정
+        if (sortSelect && !sortSelect.value) {
+            sortSelect.value = 'absent';
+        }
+        
         if (sortOption === 'absent') {
             updateAttendanceStatus(statsMap);
         }
