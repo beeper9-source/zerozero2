@@ -1492,6 +1492,25 @@ function bindPickleballUI() {
         loginForm.addEventListener('submit', handleLogin);
     }
     
+    // 비밀번호 표시/숨기기 토글 기능
+    const togglePasswordBtn = document.querySelector('#togglePassword');
+    const passwordInput = document.querySelector('#password');
+    if (togglePasswordBtn && passwordInput) {
+        togglePasswordBtn.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            const icon = togglePasswordBtn.querySelector('i');
+            if (type === 'text') {
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+    }
+    
     // 회원 정렬 옵션 변경 이벤트 리스너
     const pmemSortSelect = document.querySelector('#pmemSort');
     if (pmemSortSelect) {
