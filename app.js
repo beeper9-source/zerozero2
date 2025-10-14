@@ -233,6 +233,21 @@ function showDUPRLogicModal(content) {
     });
 }
 
+// 게임결과 폼 초기화 함수
+function initializeGameForm() {
+    // 오늘 날짜를 YYYY-MM-DD 형식으로 설정
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayString = `${year}-${month}-${day}`;
+    
+    const dateInput = document.querySelector('#pgameDate');
+    if (dateInput) {
+        dateInput.value = todayString;
+    }
+}
+
 // DUPR 모달 닫기 함수
 function closeDUPRModal() {
     const modal = document.querySelector('#duprLogicModal');
@@ -1271,6 +1286,13 @@ async function pgameCreate() {
         if (error) throw error;
         setStatus('Result saved successfully');
         await pgameList();
+        
+        // 폼 초기화 (오늘 날짜로 설정)
+        initializeGameForm();
+        document.querySelector('#pgameMember').value = '';
+        document.querySelector('#pgameCourt').value = '';
+        document.querySelector('#pgameWins').value = '0';
+        document.querySelector('#pgameLosses').value = '0';
     } catch (err) { 
         setError(err); 
         setStatus('Error'); 
@@ -1363,6 +1385,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindPickleballUI();
     updateLastUpdateDate();
     initializeAccordion();
+    initializeGameForm(); // 게임결과 폼 초기화
 });
 
 // 아코디언 초기화 - 첫 번째 섹션만 열어두기
