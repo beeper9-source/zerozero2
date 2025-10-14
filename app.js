@@ -1151,7 +1151,7 @@ function renderMemberCards(members, statsByMemberId) {
     
     if (members.length === 0) {
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="5" style="text-align:center; padding:40px; color:#64748b;"><i class="fas fa-user-slash"></i> 등록된 회원이 없습니다.</td>';
+        row.innerHTML = '<td colspan="4" style="text-align:center; padding:40px; color:#64748b;"><i class="fas fa-user-slash"></i> 등록된 회원이 없습니다.</td>';
         tableBody.appendChild(row);
         return;
     }
@@ -1228,7 +1228,6 @@ function renderMemberCards(members, statsByMemberId) {
         row.innerHTML = `
             <td style="text-align:center;">${index + 1}</td>
             <td style="text-align:center;">${member.name || 'Unknown'}(${member.department || 'No Department'})</td>
-            <td style="text-align:center;">${member.e_mail || '미등록'}</td>
             <td style="text-align:center;">${fourthColumnContent}</td>
             <td style="text-align:center;">${formatLastAttendance(stats.lastAttendanceDate)}</td>
         `;
