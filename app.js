@@ -4,6 +4,146 @@ const statusEl = () => $('#status');
 const errorsEl = () => $('#errors');
 const resultsEl = () => $('#results');
 
+// 인증 관련 함수들
+async function initializeAuth() {
+    const supabase = await ensureSupabaseReady();
+    
+    // 현재 세션 확인
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (session) {
+        // 로그인된 상태
+        showMainApp();
+        updateUserInfo(session.user);
+    } else {
+        // 로그인되지 않은 상태
+        showLoginForm();
+    }
+    
+    // 인증 상태 변화 감지
+    supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+            showMainApp();
+            updateUserInfo(session.user);
+        } else if (event === 'SIGNED_OUT') {
+            showLoginForm();
+        }
+    });
+}
+
+// Samsung.com 도메인 검증
+function validateSamsungEmail(email) {
+    const samsungDomainRegex = /^[a-zA-Z0-9._%+-]+@samsung\.com$/;
+    return samsungDomainRegex.test(email);
+}
+
+// 로그인 함수
+async function handleLogin(event) {
+    event.preventDefault();
+    
+    const email = document.querySelector('#email').value.trim();
+    const password = document.querySelector('#password').value;
+    const loginBtn = document.querySelector('#loginBtn');
+    const loginError = document.querySelector('#loginError');
+    
+    // 에러 메시지 초기화
+    clearLoginErrors();
+    
+    // 이메일 도메인 검증
+    if (!validateSamsungEmail(email)) {
+        showError('emailError', 'Samsung.com 도메인의 이메일만 사용 가능합니다.');
+        return;
+    }
+    
+    // 비밀번호 길이 검증
+    if (password.length < 6) {
+        showError('passwordError', '비밀번호는 최소 6자 이상이어야 합니다.');
+        return;
+    }
+    
+    try {
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 로그인 중...';
+        
+        const supabase = await ensureSupabaseReady();
+        
+        // 로그인 시도
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        
+        if (error) {
+            if (error.message.includes('Invalid login credentials')) {
+                showError('loginError', '이메일 또는 비밀번호가 올바르지 않습니다.');
+            } else if (error.message.includes('Email not confirmed')) {
+                showError('loginError', '이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.');
+            } else {
+                showError('loginError', '로그인 중 오류가 발생했습니다: ' + error.message);
+            }
+        } else {
+            // 로그인 성공
+            showMainApp();
+            updateUserInfo(data.user);
+        }
+        
+    } catch (err) {
+        showError('loginError', '로그인 중 오류가 발생했습니다: ' + err.message);
+    } finally {
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> 로그인';
+    }
+}
+
+// 로그아웃 함수
+async function handleLogout() {
+    try {
+        const supabase = await ensureSupabaseReady();
+        const { error } = await supabase.auth.signOut();
+        
+        if (error) {
+            console.error('로그아웃 오류:', error);
+        }
+        
+        showLoginForm();
+    } catch (err) {
+        console.error('로그아웃 중 오류:', err);
+    }
+}
+
+// UI 표시 함수들
+function showLoginForm() {
+    document.querySelector('#loginSection').style.display = 'flex';
+    document.querySelector('#mainApp').style.display = 'none';
+}
+
+function showMainApp() {
+    document.querySelector('#loginSection').style.display = 'none';
+    document.querySelector('#mainApp').style.display = 'block';
+}
+
+function updateUserInfo(user) {
+    // 사용자 정보를 헤더에 표시할 수 있음
+    console.log('로그인된 사용자:', user.email);
+}
+
+// 에러 메시지 표시 함수들
+function showError(elementId, message) {
+    const errorElement = document.querySelector(`#${elementId}`);
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+    }
+}
+
+function clearLoginErrors() {
+    const errorElements = document.querySelectorAll('.error-message');
+    errorElements.forEach(element => {
+        element.textContent = '';
+        element.style.display = 'none';
+    });
+}
+
 // 아코디언 토글 함수
 function toggleSection(sectionName) {
     const content = document.getElementById(`${sectionName}-content`);
@@ -1338,11 +1478,18 @@ function bindPickleballUI() {
         ['#pcourtLoad', pcourtList], ['#pcourtLoadAll', pcourtListAll], ['#pcourtCreate', pcourtCreate], ['#pcourtSave', pcourtSave], ['#pcourtCancel', hideCourtForm],
         ['#pgameLoad', pgameList], ['#pgameCreate', pgameCreate], ['#pgameUpdate', pgameUpdate], ['#pgameDelete', pgameDelete],
         ['#statisticsLoad', loadStatistics], ['#statisticsRefresh', refreshStatistics],
+        ['#logoutBtn', handleLogout], // 로그아웃 버튼 추가
     ];
     for (const [sel, fn] of mappings) {
         const nodes = document.querySelectorAll(sel);
         if (!nodes || nodes.length === 0) continue;
         nodes.forEach((el) => el.addEventListener('click', fn));
+    }
+    
+    // 로그인 폼 이벤트 리스너 추가
+    const loginForm = document.querySelector('#loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
     }
     
     // 회원 정렬 옵션 변경 이벤트 리스너
@@ -1386,6 +1533,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateLastUpdateDate();
     initializeAccordion();
     initializeGameForm(); // 게임결과 폼 초기화
+    await initializeAuth(); // 인증 초기화
 });
 
 // 아코디언 초기화 - 첫 번째 섹션만 열어두기

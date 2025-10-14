@@ -14,6 +14,43 @@
   <script defer src="./app.js"></script>
 </head>
 <body>
+  <!-- 로그인 섹션 -->
+  <div id="loginSection" class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <img src="./Samsung_Logo.svg" alt="Samsung" style="width:48px;height:48px;margin-bottom:20px;">
+        <h2>Zero Zero 2 Admin</h2>
+        <p>Samsung 직원만 접근 가능합니다</p>
+      </div>
+      
+      <form id="loginForm" class="login-form">
+        <div class="form-group">
+          <label for="email">이메일 (Samsung 계정)</label>
+          <input type="email" id="email" name="email" placeholder="your.name@samsung.com" required>
+          <div id="emailError" class="error-message"></div>
+        </div>
+        
+        <div class="form-group">
+          <label for="password">비밀번호</label>
+          <input type="password" id="password" name="password" placeholder="비밀번호를 입력하세요" required>
+          <div id="passwordError" class="error-message"></div>
+        </div>
+        
+        <button type="submit" id="loginBtn" class="login-btn">
+          <i class="fas fa-sign-in-alt"></i> 로그인
+        </button>
+        
+        <div id="loginError" class="error-message"></div>
+      </form>
+      
+      <div class="login-footer">
+        <p><i class="fas fa-info-circle"></i> Samsung.com 도메인만 사용 가능합니다</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 메인 애플리케이션 (로그인 후 표시) -->
+  <div id="mainApp" class="main-app" style="display: none;">
   <div class="container">
     <header class="header">
       <h1><img src="./Samsung_Logo.svg" alt="Samsung" style="width:32px;height:32px;margin-right:8px;vertical-align:middle;"> Zero Zero 2</h1>
@@ -242,10 +279,16 @@
   <footer style="text-align: center; margin-top: 40px; padding: 20px; color: #64748b; font-size: 0.9rem; border-top: 1px solid #e2e8f0;">
     <p>소스 최종 반영일: <span id="lastUpdateDate"></span></p>
     <p style="margin-top: 8px;">소스위치: <a href="https://github.com/beeper9-source/zerozero2" target="_blank" style="color: #667eea; text-decoration: none;">github.com/beeper9-source/zerozero2</a></p>
+    <div style="margin-top: 15px;">
+      <button id="logoutBtn" class="btn btn-secondary">
+        <i class="fas fa-sign-out-alt"></i> 로그아웃
+      </button>
+    </div>
   </footer>
 
   <noscript>자바스크립트가 필요합니다.</noscript>
   </div>
+  </div> <!-- 메인 앱 닫기 -->
 </body>
 </html>
 
