@@ -13,6 +13,12 @@ const SUPABASE_CONFIG = {
 let supabase = null;
 
 function initializeSupabase() {
+    // 이미 초기화된 경우 중복 초기화 방지
+    if (supabase) {
+        console.log('Supabase 클라이언트가 이미 초기화되어 있습니다.');
+        return true;
+    }
+    
     if (typeof window.supabase !== 'undefined') {
         supabase = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
         console.log('Supabase 클라이언트 초기화 완료');

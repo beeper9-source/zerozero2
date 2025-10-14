@@ -6,29 +6,47 @@ const resultsEl = () => $('#results');
 
 // 인증 관련 함수들
 async function initializeAuth() {
-    const supabase = await ensureSupabaseReady();
-    
-    // 현재 세션 확인
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (session) {
-        // 로그인된 상태
-        showMainApp();
-        updateUserInfo(session.user);
-    } else {
-        // 로그인되지 않은 상태
-        showLoginForm();
-    }
-    
-    // 인증 상태 변화 감지
-    supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' && session) {
+    try {
+        console.log('인증 초기화 시작...');
+        const supabase = await ensureSupabaseReady();
+        console.log('Supabase 클라이언트 준비 완료');
+        
+        // 현재 세션 확인
+        console.log('현재 세션 확인 중...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+            console.error('세션 확인 오류:', error);
+        }
+        
+        console.log('현재 세션:', session);
+        
+        if (session) {
+            // 로그인된 상태
+            console.log('로그인된 사용자:', session.user.email);
             showMainApp();
             updateUserInfo(session.user);
-        } else if (event === 'SIGNED_OUT') {
-            showLoginForm();
+        } else {
+            // 로그인되지 않은 상태
+            console.log('로그인되지 않은 상태');
+            showAuthForm();
         }
-    });
+        
+        // 인증 상태 변화 감지
+        supabase.auth.onAuthStateChange((event, session) => {
+            console.log('인증 상태 변화:', event, session);
+            if (event === 'SIGNED_IN' && session) {
+                showMainApp();
+                updateUserInfo(session.user);
+            } else if (event === 'SIGNED_OUT') {
+                showAuthForm();
+            }
+        });
+        
+    } catch (error) {
+        console.error('인증 초기화 오류:', error);
+        showAuthForm();
+    }
 }
 
 // Samsung.com 도메인 검증
@@ -41,23 +59,22 @@ function validateSamsungEmail(email) {
 async function handleLogin(event) {
     event.preventDefault();
     
-    const email = document.querySelector('#email').value.trim();
-    const password = document.querySelector('#password').value;
+    const email = document.querySelector('#loginEmail').value.trim();
+    const password = document.querySelector('#loginPassword').value;
     const loginBtn = document.querySelector('#loginBtn');
-    const loginError = document.querySelector('#loginError');
     
     // 에러 메시지 초기화
-    clearLoginErrors();
+    clearAuthErrors();
     
     // 이메일 도메인 검증
     if (!validateSamsungEmail(email)) {
-        showError('emailError', 'Samsung.com 도메인의 이메일만 사용 가능합니다.');
+        showError('loginEmailError', 'Samsung.com 도메인의 이메일만 사용 가능합니다.');
         return;
     }
     
     // 비밀번호 길이 검증
     if (password.length < 6) {
-        showError('passwordError', '비밀번호는 최소 6자 이상이어야 합니다.');
+        showError('loginPasswordError', '비밀번호는 최소 6자 이상이어야 합니다.');
         return;
     }
     
@@ -95,6 +112,112 @@ async function handleLogin(event) {
     }
 }
 
+// 회원가입 함수
+async function handleSignup(event) {
+    event.preventDefault();
+    
+    const email = document.querySelector('#signupEmail').value.trim();
+    const password = document.querySelector('#signupPassword').value;
+    const confirmPassword = document.querySelector('#confirmPassword').value;
+    const signupBtn = document.querySelector('#signupBtn');
+    
+    // 에러 메시지 초기화
+    clearAuthErrors();
+    
+    console.log('회원가입 시도:', { email, passwordLength: password.length });
+    
+    // 이메일 도메인 검증
+    if (!validateSamsungEmail(email)) {
+        showError('signupEmailError', 'Samsung.com 도메인의 이메일만 사용 가능합니다.');
+        return;
+    }
+    
+    // 비밀번호 길이 검증
+    if (password.length < 6) {
+        showError('signupPasswordError', '비밀번호는 최소 6자 이상이어야 합니다.');
+        return;
+    }
+    
+    // 비밀번호 확인 검증
+    if (password !== confirmPassword) {
+        showError('confirmPasswordError', '비밀번호가 일치하지 않습니다.');
+        return;
+    }
+    
+    try {
+        signupBtn.disabled = true;
+        signupBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 회원가입 중...';
+        
+        console.log('Supabase 클라이언트 초기화 시도...');
+        const supabase = await ensureSupabaseReady();
+        console.log('Supabase 클라이언트 초기화 완료');
+        
+        // 먼저 P_member 테이블에서 이메일이 등록되어 있는지 확인
+        console.log('등록된 회원 확인 중...');
+        const { data: memberData, error: memberError } = await supabase
+            .from('P_member')
+            .select('id, name, e_mail')
+            .eq('e_mail', email)
+            .single();
+        
+        if (memberError && memberError.code !== 'PGRST116') { // PGRST116은 "no rows returned" 오류
+            console.error('회원 조회 오류:', memberError);
+            showError('signupError', '회원 정보 확인 중 오류가 발생했습니다.');
+            return;
+        }
+        
+        if (!memberData) {
+            console.log('등록되지 않은 이메일:', email);
+            showError('signupError', '등록된 회원이 아닙니다. 관리자에게 문의하세요.');
+            return;
+        }
+        
+        console.log('등록된 회원 확인됨:', memberData);
+        
+        console.log('회원가입 API 호출...');
+        // 회원가입 시도
+        const { data, error } = await supabase.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                emailRedirectTo: window.location.origin
+            }
+        });
+        
+        console.log('회원가입 응답:', { data, error });
+        
+        if (error) {
+            console.error('회원가입 오류:', error);
+            if (error.message.includes('User already registered')) {
+                showError('signupError', '이미 등록된 이메일입니다. 로그인을 시도해보세요.');
+            } else if (error.message.includes('Password should be at least')) {
+                showError('signupPasswordError', '비밀번호는 최소 6자 이상이어야 합니다.');
+            } else if (error.message.includes('Invalid email')) {
+                showError('signupEmailError', '올바른 이메일 형식이 아닙니다.');
+            } else {
+                showError('signupError', '회원가입 중 오류가 발생했습니다: ' + error.message);
+            }
+        } else {
+            // 회원가입 성공
+            console.log('회원가입 성공:', data);
+            showError('signupError', '회원가입이 완료되었습니다! 이메일을 확인하여 계정을 활성화해주세요.', 'success');
+            
+            // 폼 초기화
+            document.querySelector('#signupForm').reset();
+            
+            // 로그인 탭으로 전환
+            switchToLogin();
+        }
+        
+    } catch (err) {
+        console.error('회원가입 예외:', err);
+        showError('signupError', '회원가입 중 오류가 발생했습니다: ' + err.message);
+    } finally {
+        signupBtn.disabled = false;
+        signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> 회원가입';
+    }
+}
+
 // 로그아웃 함수
 async function handleLogout() {
     try {
@@ -105,20 +228,20 @@ async function handleLogout() {
             console.error('로그아웃 오류:', error);
         }
         
-        showLoginForm();
+        showAuthForm();
     } catch (err) {
         console.error('로그아웃 중 오류:', err);
     }
 }
 
 // UI 표시 함수들
-function showLoginForm() {
-    document.querySelector('#loginSection').style.display = 'flex';
+function showAuthForm() {
+    document.querySelector('#authSection').style.display = 'flex';
     document.querySelector('#mainApp').style.display = 'none';
 }
 
 function showMainApp() {
-    document.querySelector('#loginSection').style.display = 'none';
+    document.querySelector('#authSection').style.display = 'none';
     document.querySelector('#mainApp').style.display = 'block';
 }
 
@@ -127,21 +250,76 @@ function updateUserInfo(user) {
     console.log('로그인된 사용자:', user.email);
 }
 
+// 탭 전환 함수들
+function switchToLogin() {
+    // 탭 활성화
+    document.querySelector('#loginTab').classList.add('active');
+    document.querySelector('#signupTab').classList.remove('active');
+    
+    // 폼 표시
+    document.querySelector('#loginForm').classList.add('active');
+    document.querySelector('#signupForm').classList.remove('active');
+    
+    // 에러 메시지 초기화
+    clearAuthErrors();
+}
+
+function switchToSignup() {
+    // 탭 활성화
+    document.querySelector('#signupTab').classList.add('active');
+    document.querySelector('#loginTab').classList.remove('active');
+    
+    // 폼 표시
+    document.querySelector('#signupForm').classList.add('active');
+    document.querySelector('#loginForm').classList.remove('active');
+    
+    // 에러 메시지 초기화
+    clearAuthErrors();
+}
+
 // 에러 메시지 표시 함수들
-function showError(elementId, message) {
+function showError(elementId, message, type = 'error') {
     const errorElement = document.querySelector(`#${elementId}`);
     if (errorElement) {
         errorElement.textContent = message;
         errorElement.style.display = 'block';
+        
+        // 성공 메시지인 경우 색상 변경
+        if (type === 'success') {
+            errorElement.style.color = '#10b981';
+        } else {
+            errorElement.style.color = '#ef4444';
+        }
     }
 }
 
-function clearLoginErrors() {
+function clearAuthErrors() {
     const errorElements = document.querySelectorAll('.error-message');
     errorElements.forEach(element => {
         element.textContent = '';
         element.style.display = 'none';
+        element.style.color = '#ef4444'; // 기본 색상으로 리셋
     });
+}
+
+// 비밀번호 표시/숨기기 토글 함수
+function togglePasswordVisibility(inputId, buttonId) {
+    const input = document.querySelector(`#${inputId}`);
+    const button = document.querySelector(`#${buttonId}`);
+    
+    if (input && button) {
+        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+        input.setAttribute('type', type);
+        
+        const icon = button.querySelector('i');
+        if (type === 'text') {
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
 }
 
 // 아코디언 토글 함수
@@ -181,15 +359,33 @@ function renderResults(data) {
     }
 }
 
+// Supabase 클라이언트 초기화
 async function ensureSupabaseReady() {
-    if (window.validateSupabaseConfig && !window.validateSupabaseConfig()) {
-        throw new Error('Supabase 설정이 유효하지 않습니다. `supabase-config.js`를 확인하세요.');
+    // supabase-config.js에서 초기화된 클라이언트 사용
+    if (window.supabaseClient) {
+        return window.supabaseClient;
     }
-    const client = window.supabaseClient;
-    if (!client) {
-        throw new Error('Supabase 클라이언트가 아직 준비되지 않았습니다. 잠시 후 다시 시도하세요.');
-    }
-    return client;
+    
+    // 클라이언트가 아직 준비되지 않은 경우 대기
+    return new Promise((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        const checkClient = () => {
+            attempts++;
+            
+            if (window.supabaseClient) {
+                console.log('Supabase 클라이언트 준비 완료');
+                resolve(window.supabaseClient);
+            } else if (attempts >= maxAttempts) {
+                reject(new Error('Supabase 클라이언트 초기화 시간 초과'));
+            } else {
+                setTimeout(checkClient, 100);
+            }
+        };
+        
+        checkClient();
+    });
 }
 
 // 상단 일반 테이블 조회 기능 제거됨
@@ -955,7 +1151,7 @@ function renderMemberCards(members, statsByMemberId) {
     
     if (members.length === 0) {
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="4" style="text-align:center; padding:40px; color:#64748b;"><i class="fas fa-user-slash"></i> 등록된 회원이 없습니다.</td>';
+        row.innerHTML = '<td colspan="5" style="text-align:center; padding:40px; color:#64748b;"><i class="fas fa-user-slash"></i> 등록된 회원이 없습니다.</td>';
         tableBody.appendChild(row);
         return;
     }
@@ -1032,6 +1228,7 @@ function renderMemberCards(members, statsByMemberId) {
         row.innerHTML = `
             <td style="text-align:center;">${index + 1}</td>
             <td style="text-align:center;">${member.name || 'Unknown'}(${member.department || 'No Department'})</td>
+            <td style="text-align:center;">${member.e_mail || '미등록'}</td>
             <td style="text-align:center;">${fourthColumnContent}</td>
             <td style="text-align:center;">${formatLastAttendance(stats.lastAttendanceDate)}</td>
         `;
@@ -1054,6 +1251,7 @@ function showMemberForm() {
         // Clear form
         document.querySelector('#pmemName').value = '';
         document.querySelector('#pmemDept').value = '';
+        document.querySelector('#pmemEmail').value = '';
     }
 }
 
@@ -1074,18 +1272,27 @@ async function pmemSave() {
     try {
         const name = document.querySelector('#pmemName')?.value.trim();
         const dept = document.querySelector('#pmemDept')?.value.trim();
+        const email = document.querySelector('#pmemEmail')?.value.trim();
         if (!name) throw new Error('name 은 필수입니다.');
         
         const supabase = await ensureSupabaseReady();
         
         if (currentEditingMemberId) {
             // Update existing member
-            const { error } = await supabase.from('P_member').update({ name, department: dept || null }).eq('id', currentEditingMemberId);
+            const { error } = await supabase.from('P_member').update({ 
+                name, 
+                department: dept || null,
+                e_mail: email || null 
+            }).eq('id', currentEditingMemberId);
             if (error) throw error;
             setStatus('Member updated');
         } else {
             // Create new member
-            const { error } = await supabase.from('P_member').insert({ name, department: dept || null });
+            const { error } = await supabase.from('P_member').insert({ 
+                name, 
+                department: dept || null,
+                e_mail: email || null 
+            });
             if (error) throw error;
             setStatus('Member created');
         }
@@ -1105,6 +1312,7 @@ async function editMember(memberId) {
         currentEditingMemberId = memberId;
         document.querySelector('#pmemName').value = data.name || '';
         document.querySelector('#pmemDept').value = data.department || '';
+        document.querySelector('#pmemEmail').value = data.e_mail || '';
         
         const form = document.querySelector('#pmemForm');
         if (form) form.style.display = 'block';
@@ -1486,28 +1694,46 @@ function bindPickleballUI() {
         nodes.forEach((el) => el.addEventListener('click', fn));
     }
     
-    // 로그인 폼 이벤트 리스너 추가
+    // 인증 폼 이벤트 리스너 추가
     const loginForm = document.querySelector('#loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', handleLogin);
     }
     
+    const signupForm = document.querySelector('#signupForm');
+    if (signupForm) {
+        signupForm.addEventListener('submit', handleSignup);
+    }
+    
+    // 탭 전환 이벤트 리스너
+    const loginTab = document.querySelector('#loginTab');
+    const signupTab = document.querySelector('#signupTab');
+    if (loginTab) {
+        loginTab.addEventListener('click', switchToLogin);
+    }
+    if (signupTab) {
+        signupTab.addEventListener('click', switchToSignup);
+    }
+    
     // 비밀번호 표시/숨기기 토글 기능
-    const togglePasswordBtn = document.querySelector('#togglePassword');
-    const passwordInput = document.querySelector('#password');
-    if (togglePasswordBtn && passwordInput) {
-        togglePasswordBtn.addEventListener('click', () => {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            
-            const icon = togglePasswordBtn.querySelector('i');
-            if (type === 'text') {
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            }
+    const toggleLoginPasswordBtn = document.querySelector('#toggleLoginPassword');
+    if (toggleLoginPasswordBtn) {
+        toggleLoginPasswordBtn.addEventListener('click', () => {
+            togglePasswordVisibility('loginPassword', 'toggleLoginPassword');
+        });
+    }
+    
+    const toggleSignupPasswordBtn = document.querySelector('#toggleSignupPassword');
+    if (toggleSignupPasswordBtn) {
+        toggleSignupPasswordBtn.addEventListener('click', () => {
+            togglePasswordVisibility('signupPassword', 'toggleSignupPassword');
+        });
+    }
+    
+    const toggleConfirmPasswordBtn = document.querySelector('#toggleConfirmPassword');
+    if (toggleConfirmPasswordBtn) {
+        toggleConfirmPasswordBtn.addEventListener('click', () => {
+            togglePasswordVisibility('confirmPassword', 'toggleConfirmPassword');
         });
     }
     

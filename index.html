@@ -14,8 +14,8 @@
   <script defer src="./app.js"></script>
 </head>
 <body>
-  <!-- 로그인 섹션 -->
-  <div id="loginSection" class="login-container">
+  <!-- 로그인/회원가입 섹션 -->
+  <div id="authSection" class="login-container">
     <div class="login-card">
       <div class="login-header">
         <img src="./Samsung_Logo.svg" alt="Samsung" style="width:48px;height:48px;margin-bottom:20px;">
@@ -23,32 +23,83 @@
         <p>Samsung 직원만 접근 가능합니다</p>
       </div>
       
-      <form id="loginForm" class="login-form">
+      <!-- 로그인/회원가입 탭 -->
+      <div class="auth-tabs">
+        <button id="loginTab" class="auth-tab active">
+          <i class="fas fa-sign-in-alt"></i> 로그인
+        </button>
+        <button id="signupTab" class="auth-tab">
+          <i class="fas fa-user-plus"></i> 회원가입
+        </button>
+      </div>
+      
+      <!-- 로그인 폼 -->
+      <form id="loginForm" class="auth-form active">
         <div class="form-group">
-          <label for="email">이메일 (Samsung 계정)</label>
-          <input type="email" id="email" name="email" placeholder="your.name@samsung.com" required>
-          <div id="emailError" class="error-message"></div>
+          <label for="loginEmail">이메일 (Samsung 계정)</label>
+          <input type="email" id="loginEmail" name="email" placeholder="your.name@samsung.com" required>
+          <div id="loginEmailError" class="error-message"></div>
         </div>
         
         <div class="form-group">
-          <label for="password">비밀번호</label>
+          <label for="loginPassword">비밀번호</label>
           <div style="position: relative;">
-            <input type="password" id="password" name="password" placeholder="비밀번호를 입력하세요" required>
-            <button type="button" id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 16px;">
+            <input type="password" id="loginPassword" name="password" placeholder="비밀번호를 입력하세요" required>
+            <button type="button" id="toggleLoginPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 16px;">
               <i class="fas fa-eye"></i>
             </button>
           </div>
-          <div id="passwordError" class="error-message"></div>
+          <div id="loginPasswordError" class="error-message"></div>
           <div style="font-size: 0.8rem; color: #64748b; margin-top: 5px;">
             <i class="fas fa-info-circle"></i> 최소 6자 이상 입력하세요
           </div>
         </div>
         
-        <button type="submit" id="loginBtn" class="login-btn">
+        <button type="submit" id="loginBtn" class="auth-btn">
           <i class="fas fa-sign-in-alt"></i> 로그인
         </button>
         
         <div id="loginError" class="error-message"></div>
+      </form>
+      
+      <!-- 회원가입 폼 -->
+      <form id="signupForm" class="auth-form">
+        <div class="form-group">
+          <label for="signupEmail">이메일 (Samsung 계정)</label>
+          <input type="email" id="signupEmail" name="email" placeholder="your.name@samsung.com" required>
+          <div id="signupEmailError" class="error-message"></div>
+        </div>
+        
+        <div class="form-group">
+          <label for="signupPassword">비밀번호</label>
+          <div style="position: relative;">
+            <input type="password" id="signupPassword" name="password" placeholder="비밀번호를 입력하세요" required>
+            <button type="button" id="toggleSignupPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 16px;">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+          <div id="signupPasswordError" class="error-message"></div>
+          <div style="font-size: 0.8rem; color: #64748b; margin-top: 5px;">
+            <i class="fas fa-info-circle"></i> 최소 6자 이상 입력하세요
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="confirmPassword">비밀번호 확인</label>
+          <div style="position: relative;">
+            <input type="password" id="confirmPassword" name="confirmPassword" placeholder="비밀번호를 다시 입력하세요" required>
+            <button type="button" id="toggleConfirmPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 16px;">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+          <div id="confirmPasswordError" class="error-message"></div>
+        </div>
+        
+        <button type="submit" id="signupBtn" class="auth-btn">
+          <i class="fas fa-user-plus"></i> 회원가입
+        </button>
+        
+        <div id="signupError" class="error-message"></div>
       </form>
       
       <div class="login-footer">
@@ -174,6 +225,10 @@
       <input id="pmemDept" type="text" placeholder="영업팀" />
     </div>
     <div class="row">
+      <label for="pmemEmail">e-mail</label>
+      <input id="pmemEmail" type="email" placeholder="hong.gildong@samsung.com" />
+    </div>
+    <div class="row">
       <button id="pmemSave">Save</button>
       <button id="pmemCancel">Cancel</button>
     </div>
@@ -186,6 +241,7 @@
         <tr>
           <th style="text-align:center; width:60px;">No</th>
           <th style="text-align:center;">이름(부서)</th>
+          <th style="text-align:center;">이메일</th>
           <th style="text-align:center;">DUPR</th>
           <th style="text-align:center;">최종참석일</th>
         </tr>
