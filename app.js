@@ -302,7 +302,7 @@ function clearAuthErrors() {
     });
 }
 
-// 비밀번호 표시/숨기기 토글 함수
+// 비밀번호 표시/숨기기 토글 함수 (모바일 터치 개선)
 function togglePasswordVisibility(inputId, buttonId) {
     const input = document.querySelector(`#${inputId}`);
     const button = document.querySelector(`#${buttonId}`);
@@ -320,6 +320,39 @@ function togglePasswordVisibility(inputId, buttonId) {
             icon.classList.add('fa-eye');
         }
     }
+}
+
+// 모바일 터치 이벤트 개선 함수
+function addMobileTouchSupport(buttonId, inputId) {
+    const button = document.querySelector(`#${buttonId}`);
+    if (!button) return;
+    
+    // 클릭 이벤트
+    button.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        togglePasswordVisibility(inputId, buttonId);
+    });
+    
+    // 터치 이벤트 (모바일)
+    button.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        button.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
+    });
+    
+    button.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        button.style.backgroundColor = '';
+        togglePasswordVisibility(inputId, buttonId);
+    });
+    
+    // 터치 취소 시 스타일 리셋
+    button.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        button.style.backgroundColor = '';
+    });
 }
 
 // 아코디언 토글 함수
@@ -1714,27 +1747,10 @@ function bindPickleballUI() {
         signupTab.addEventListener('click', switchToSignup);
     }
     
-    // 비밀번호 표시/숨기기 토글 기능
-    const toggleLoginPasswordBtn = document.querySelector('#toggleLoginPassword');
-    if (toggleLoginPasswordBtn) {
-        toggleLoginPasswordBtn.addEventListener('click', () => {
-            togglePasswordVisibility('loginPassword', 'toggleLoginPassword');
-        });
-    }
-    
-    const toggleSignupPasswordBtn = document.querySelector('#toggleSignupPassword');
-    if (toggleSignupPasswordBtn) {
-        toggleSignupPasswordBtn.addEventListener('click', () => {
-            togglePasswordVisibility('signupPassword', 'toggleSignupPassword');
-        });
-    }
-    
-    const toggleConfirmPasswordBtn = document.querySelector('#toggleConfirmPassword');
-    if (toggleConfirmPasswordBtn) {
-        toggleConfirmPasswordBtn.addEventListener('click', () => {
-            togglePasswordVisibility('confirmPassword', 'toggleConfirmPassword');
-        });
-    }
+    // 비밀번호 표시/숨기기 토글 기능 (모바일 터치 개선)
+    addMobileTouchSupport('toggleLoginPassword', 'loginPassword');
+    addMobileTouchSupport('toggleSignupPassword', 'signupPassword');
+    addMobileTouchSupport('toggleConfirmPassword', 'confirmPassword');
     
     // 회원 정렬 옵션 변경 이벤트 리스너
     const pmemSortSelect = document.querySelector('#pmemSort');
