@@ -322,6 +322,11 @@ function togglePasswordVisibility(inputId, buttonId) {
     }
 }
 
+
+
+
+
+
 // 모바일 터치 이벤트 개선 함수
 function addMobileTouchSupport(buttonId, inputId) {
     const button = document.querySelector(`#${buttonId}`);
