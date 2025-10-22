@@ -1417,11 +1417,15 @@ function renderCourtCards(courts) {
         const activeStatus = isActive ? '활성' : '비활성';
         const activeIcon = isActive ? 'fa-check-circle' : 'fa-times-circle';
         const activeColor = isActive ? '#10b981' : '#ef4444';
+        // 코트 이미지 경로: name 앞 2글자 + .JPG (img 폴더)
+        const courtPrefix = (court.name || '').slice(0, 2);
+        const courtImgPath = `img/${courtPrefix}.JPG`;
+        const fallbackSvg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcj0iNDAiIGZpbGw9IiNlMmU4ZjAiLz4KPHN2ZyB4PSIyMCIgeT0iMjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIj4KPHBhdGggZD0iTTEyIDJMMTMuMDkgOC4yNkwyMCA5TDEzLjA5IDE1Ljc0TDEyIDIyTDEwLjkxIDE1Ljc0TDQgOUwxMC45MSA4LjI2TDEyIDJaIiBmaWxsPSIjYTBhZWMwIi8+Cjwvc3ZnPgo8L3N2Zz4K';
         
         card.innerHTML = `
             <div class="member-header">
                 <div class="member-photo-container">
-                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcj0iNDAiIGZpbGw9IiNlMmU4ZjAiLz4KPHN2ZyB4PSIyMCIgeT0iMjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIj4KPHBhdGggZD0iTTEyIDJMMTMuMDkgOC4yNkwyMCA5TDEzLjA5IDE1Ljc0TDEyIDIyTDEwLjkxIDE1Ljc0TDQgOUwxMC45MSA4LjI2TDEyIDJaIiBmaWxsPSIjYTBhZWMwIi8+Cjwvc3ZnPgo8L3N2Zz4K" class="member-photo" alt="Court">
+                    <img src="${courtImgPath}" onerror="this.onerror=null;this.src='${fallbackSvg}';" class="member-photo" alt="${court.name || 'Court'}">
                 </div>
                 <div class="member-info">
                     <h3>${court.name || 'Unknown'}</h3>
